@@ -14,9 +14,9 @@ const actionOf = (tool: string) => `${SERVER_NAME}_${tool}`
 const rule = (tool: string, effect: Rule["effect"]): Rule => ({ action: actionOf(tool), resource: "*", effect })
 
 /**
- * Broad first, narrow last, because the last matching rule wins: every Jira tool asks, including tools Jira
- * adds later, then the known reads run, and the tools that move or archive a candidate or send feedback to Jira are
- * off.
+ * Broad first, narrow last, because the last matching rule wins: every Jira tool asks, including tools Atlassian
+ * adds later, then the known reads run, and the deletes, the project and screen settings and the entity-property writer
+ * are off.
  */
 export const defaultRules = (): Rule[] => [rule("*", "ask"), ...READ_TOOLS.map((tool) => rule(tool, "allow")), ...DENY_TOOLS.map((tool) => rule(tool, "deny"))]
 

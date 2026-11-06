@@ -42,16 +42,16 @@ function text(content: unknown): string | undefined {
 }
 
 /** The result's structured output and its text, parsed, at the top level; the account fields are searched inside them. */
-function candidates(result: Result): unknown[] {
+function parsedOutputs(result: Result): unknown[] {
   return [parse(result.output), parse(text(result.content))]
 }
 
 /** The fields of a result: the top-level object, then each object it holds directly. */
 function objects(result: Result): Record<string, unknown>[] {
-  return candidates(result).flatMap((candidate) => {
-    if (Array.isArray(candidate)) return candidate.filter(record)
-    if (!record(candidate)) return []
-    return [candidate, ...Object.values(candidate).filter(record)]
+  return parsedOutputs(result).flatMap((value) => {
+    if (Array.isArray(value)) return value.filter(record)
+    if (!record(value)) return []
+    return [value, ...Object.values(value).filter(record)]
   })
 }
 
@@ -82,8 +82,8 @@ const isSite = (value: unknown): value is Record<string, unknown> =>
  * is a real answer: the account reaches no site. Nothing else of a site is read.
  */
 export function sitesOf(result: Result): string[] | undefined {
-  for (const candidate of candidates(result)) {
-    const lists: unknown[] = [candidate, ...(record(candidate) ? Object.values(candidate) : [])]
+  for (const value of parsedOutputs(result)) {
+    const lists: unknown[] = [value, ...(record(value) ? Object.values(value) : [])]
     // An empty list is an answer: the account reaches no site. A list of other things is not a site list.
     const sites = lists.find((value) => Array.isArray(value) && (value.length === 0 || value.some(isSite)))
     if (!Array.isArray(sites)) continue

@@ -29,7 +29,7 @@ import { Rpc } from "@opencode/plugin/rpc"
 // >>> PLUGIN-SPECIFIC >>>
 import { captureAccount, ACCOUNT_TOOL, SITES_TOOL } from "../account.js"
 import { NOT_GRANTED_TOOLS, READ_TOOLS } from "../jira-tools.js"
-import { ENDPOINT, PLUGIN_ID as JIRA_PLUGIN_ID, SERVER_NAME } from "../constants.js"
+import { PLUGIN_ID as JIRA_PLUGIN_ID, SERVER_NAME } from "../constants.js"
 
 /** The plugin's id. The RPC id is `<PLUGIN_ID>.tools`. */
 export const PLUGIN_ID = JIRA_PLUGIN_ID
@@ -56,7 +56,7 @@ export const NEXT_STEPS: NextSteps = {
   SESSION_UNKNOWN: `Create a session that names an agent, such as POST /api/session with {"agent":"build"}, and pass its id.`,
   SESSION_AGENT_REQUIRED: `Create a session that names an agent, such as POST /api/session with {"agent":"build"}, and pass its id.`,
   PERMISSION_DENIED: "Add an allow rule for the tool to the session's agent or to the session, or use a session whose agent allows it.",
-  SERVER_CONFLICT: `Run /jira-status, then point your own mcp.servers.${SERVER_NAME} in opencode.json at ${ENDPOINT} or remove it, and restart OpenCode.`,
+  SERVER_CONFLICT: `Run /jira-status, then point your own mcp.servers.${SERVER_NAME} in opencode.json at the "?tools=all" URL it names or remove it, and restart OpenCode.`,
   AUTH_REQUIRED: `Run /connect and choose Jira, then press o or Enter to open the link (in a terminal, opencode mcp auth ${SERVER_NAME} opens it automatically).`,
   CONNECTING: "Wait a few seconds, then call the method again.",
   CONNECTION_FAILED: "Check your network, then run /jira-status and follow its next step.",

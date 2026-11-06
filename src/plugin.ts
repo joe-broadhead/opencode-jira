@@ -43,13 +43,10 @@ const pathOf = (url: URL) => url.pathname.replace(/\/+$/, "")
 const queryOf = (url: URL) => new URLSearchParams([...url.searchParams].sort(([a], [b]) => a.localeCompare(b))).toString()
 
 /**
- * The shape of this server's URL, query included: `?tools=all` is what makes Atlassian send one named tool per Jira
- * tool, and a plain `/v2/mcp` entry is the meta-tool server, whose tools this plugin's table does not describe.
+ * The query this server's identity rests on: `tools=all` is what makes Atlassian send one named tool per Jira tool, and
+ * a plain `/v2/mcp` entry is the meta-tool server, whose tools this plugin's table does not describe.
  */
-const TOOL_LIST_QUERY = (() => {
-  const url = parsed("https://mcp.atlassian.com/v2/mcp?tools=all")!
-  return queryOf(url)
-})()
+const TOOL_LIST_QUERY = "tools=all"
 
 /**
  * Origin, path and query: the same server. A trailing slash still matches, and so does a reordered query; a missing or

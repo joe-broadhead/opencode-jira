@@ -2,7 +2,7 @@
 // tools-rpc.test.ts.
 import { describe, expect, test } from "bun:test"
 import { DENY_TOOLS, NOT_GRANTED_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
-import { ENDPOINT, PLUGIN_ID as JIRA_PLUGIN_ID, SERVER_NAME } from "../../src/constants.js"
+import { PLUGIN_ID as JIRA_PLUGIN_ID, SERVER_NAME } from "../../src/constants.js"
 import { KNOWN_READS, NEXT_STEPS, PLUGIN_ID, pluginError, shapeResult, TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
 import { defaultRules } from "../../src/permissions.js"
 
@@ -32,7 +32,8 @@ describe("Jira's tools RPC", () => {
   test("names Jira's own commands in its next steps, the conflict's URL, the rate limit, and no per-account servers", () => {
     expect(NEXT_STEPS.AUTH_REQUIRED).toContain("/connect and choose Jira")
     expect(NEXT_STEPS.SERVER_CONFLICT).toContain("mcp.servers.jira")
-    expect(NEXT_STEPS.SERVER_CONFLICT).toContain(ENDPOINT)
+    // The URL itself is written once, in src/constants.ts: the step names it as the one /jira-status shows.
+    expect(NEXT_STEPS.SERVER_CONFLICT).toContain('"?tools=all" URL it names')
     expect(NEXT_STEPS.TOOL_UNAVAILABLE).toBe("Call describe to see which methods OpenCode lists now, and run /jira-status.")
     expect(NEXT_STEPS.UPSTREAM_ERROR).toContain("if Atlassian reports a rate limit, wait for the Retry-After seconds and make fewer calls at once")
     for (const step of Object.values(NEXT_STEPS)) expect(step).toMatch(/[^.]\.$/)

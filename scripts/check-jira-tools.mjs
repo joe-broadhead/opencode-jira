@@ -18,8 +18,8 @@ import { readFileSync } from "node:fs"
 const USAGE = "Usage: npm run drift -- <tools.json> [--strict]"
 const PREFIX = "jira_"
 // A sentence whose subject is the tool and whose verb changes or sends something: "Sends an email…", "This tool
-// creates…". A known read whose description says so needs a second look. Nouns ("a Job Posting"), enum values (ARCHIVED,
-// HIRED), other tools' names (change_application_stage) and instructions to call another tool ("Create a candidate")
+// creates…". A known read whose description says so needs a second look. Nouns ("a project"), enum values (DONE),
+// other tools' names (createJiraIssue) and instructions to call another tool ("Create an issue with createJiraIssue")
 // don't count.
 const CHANGE_VERBS = "creates|updates|deletes|removes|edits|modifies|writes|sends|posts|uploads|archives|rejects|enrolls|saves|shares|publishes"
 const CHANGE_SENTENCE = new RegExp(`^(?:this (?:tool|call) |it )?(${CHANGE_VERBS})\\b(?!\\s*:)`, "i")
