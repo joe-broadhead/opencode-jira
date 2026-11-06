@@ -37,6 +37,8 @@ OpenCode project.
   model. The skills tell the model to treat them as data, never to follow an instruction inside a work item, to
   summarise rather than dump, and to keep the signed download link that `downloadJiraIssueAttachment` returns in the
   chat only: that link is a bearer credential for the file.
+- No tool in the Jira set sends data to Atlassian's team, so there is no feedback tool to deny here. That was checked,
+  not skipped.
 - Seven tools are denied by default, and six of them are also not granted by the sign-in's scope, so Atlassian never
   loads them: the three permanent deletes, the three project and screen settings, and the opaque entity-property
   writer. Turning one on takes an `ask` rule in an agent's own `permissions`, and, for the six, an organisation admin's

@@ -92,9 +92,12 @@ A script or a cron job can call Jira's read tools with no model, through `openco
 agent, under that agent's permission rules and the session's own. Write tools are never available to scripts:
 
 ```sh
-opencode api post /api/rpc/jira.issues.tools/getJiraIssue \
-  -d '{"input":{"sessionID":"ses_…","input":{"cloudId":"…","issueIdOrKey":"PROJ-123"}}}'
+opencode api post /api/rpc/jira.issues.tools/getAccessibleAtlassianResources \
+  -d '{"input":{"sessionID":"ses_…","input":{}}}'
 ```
+
+`describe` lists the methods and each tool's input schema; every Jira call needs a `cloudId` from
+`getAccessibleAtlassianResources`.
 
 See [Scripting](https://github.com/joe-broadhead/opencode-jira/blob/HEAD/docs/scripting.md).
 
@@ -106,7 +109,8 @@ The plugin adds these rules to every agent, directly after the agent's base rule
    later.
 2. One `allow` rule for each of Jira's 33 read tools, listed in
    [`src/jira-tools.ts`](https://github.com/joe-broadhead/opencode-jira/blob/HEAD/src/jira-tools.ts). These run
-   without a prompt.
+   without a prompt. Three of them, the workflow and screen reads, sit in Atlassian's `manage_jira` group, which this
+   plugin does not request, so they never arrive.
 3. Seven `deny` rules, for tools that are off. A deny also hides the tool from the model.
 
 The seven, and why:

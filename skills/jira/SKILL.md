@@ -31,7 +31,9 @@ for it.
   exclusive, in the form JQL accepts, and say which day it was.
 - "How many": `getJiraBoardIssueData`'s count form, not fetched rows; count them yourself only when no count form
   applies, and say that is what you did.
-- A person's work: `lookupJiraAccountId`, then JQL on `assignee`. Several people match a name: ask, showing each match.
+- A person's work: `lookupJiraAccountId`, then JQL on `assignee`. Several people match a name: ask, showing each
+  match. A miss on a full name: no shortened, partial or variant spelling; say what you looked up, then ask for the
+  email address or the account id.
 - A board or sprint: `listJiraBoards`, then `getJiraBoardConfig`, then `listJiraBoardSprints` or
   `getJiraBoardSprintData`.
 - Saved filters and dashboards: `listJiraFilters`, `listJiraDashboards`.
