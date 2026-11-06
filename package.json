@@ -90,7 +90,7 @@
   },
   "jelly": {
     "title": "Jira",
-    "summary": "Your Jira work items, boards, sprints and projects.",
+    "summary": "Find and read your Jira work items, boards and sprints, and make selected changes with approval.",
     "icon": "assets/icon.svg",
     "tools": [
       {

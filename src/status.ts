@@ -84,7 +84,7 @@ export interface Status {
   readonly nextStep: string
 }
 
-const SIGN_IN = `Run /connect and choose Jira, then press o or Enter to open the link (in a terminal, opencode mcp auth ${SERVER_NAME} opens it automatically).`
+const SIGN_IN = `Run /connect and choose Jira, then press o or Enter to open the link (in a terminal, opencode mcp auth ${SERVER_NAME} opens it automatically; run it from the project folder, and if it answers MCP server not found: ${SERVER_NAME}, wait a few seconds and run it again).`
 
 /** The default rules to paste into an agent's own permissions, one rule a line, as a JSON array body. */
 const AGENT_RULES = defaultRules()
@@ -294,12 +294,12 @@ export function formatStatus(status: Status) {
   ].join("\n")
 }
 
+/** The host reads status makes: four lists, and no Atlassian call. The account and sites come from the user's own. */
 export interface StatusContext {
   readonly mcp: Pick<Plugin.Context["mcp"], "list">
   readonly agent: Pick<Plugin.Context["agent"], "list">
   readonly tool: Pick<Plugin.Context["tool"], "list">
   readonly skill: Pick<Plugin.Context["skill"], "list">
-  readonly integration: { readonly connection: Pick<Plugin.Context["integration"]["connection"], "active"> }
 }
 
 /** When the server's status last changed, or the watcher started, in milliseconds since the epoch. */

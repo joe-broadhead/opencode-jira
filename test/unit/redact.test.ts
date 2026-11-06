@@ -79,7 +79,7 @@ describe("redaction", () => {
     const reason = reasonOf(new Error("boom\n  at https://alice:hunter2@example.com/x?token=abcdefghijklmnop\n  Bearer abcdefghijklmnop"))
     expect(reason).toBe("boom at https://example.com/x Bearer [redacted]")
     expect(reasonOf("")).toBe("no reason given")
-    await expectClean({ server: { status: "connected" }, source: plugin, host, tools: ["search_records_by_name"], problems: [`RULES_NOT_ADDED: could not be added (${reason}). Next step: Restart OpenCode.`] })
+    await expectClean({ server: { status: "connected" }, source: plugin, host, tools: ["searchJiraIssuesUsingJql"], problems: [`RULES_NOT_ADDED: could not be added (${reason}). Next step: Restart OpenCode.`] })
   })
 
   test("the cut keeps whole characters and stays at 160", () => {

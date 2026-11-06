@@ -7,7 +7,7 @@ import { VERSION } from "../../src/version.js"
 import { DENY_TOOLS, NOT_GRANTED_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
 import { allow } from "./fake.js"
 
-const SIGN_IN = "Run /connect and choose Jira, then press o or Enter to open the link (in a terminal, opencode mcp auth jira opens it automatically)."
+const SIGN_IN = "Run /connect and choose Jira, then press o or Enter to open the link (in a terminal, opencode mcp auth jira opens it automatically; run it from the project folder, and if it answers MCP server not found: jira, wait a few seconds and run it again)."
 const NOTHING_TO_DO = "Nothing to do."
 const NOT_READ_YET = "not read yet: it appears after the first Jira call since OpenCode started"
 /** The default rules as /jira-status shows them: one rule a line, a JSON array body. */
@@ -266,10 +266,9 @@ describe("buildStatus", () => {
   })
 })
 
-function statusContext(server: string, skills: Promise<unknown> = Promise.resolve({ data: [] }), connection: () => Promise<unknown> = async () => ({ type: "credential", id: "c1", label: "Sam Okafor", method: "oauth" })) {
+function statusContext(server: string, skills: Promise<unknown> = Promise.resolve({ data: [] })) {
   const ctx = {
     mcp: { list: async () => ({ data: [{ name: "github", status: { status: "connected" } }, { name: "jira", status: { status: server }, integrationID: "mcp_fake" }] }) },
-    integration: { connection: { active: async (id: string) => (id === "mcp_fake" ? connection() : undefined) } },
     agent: { list: async () => ({ data: [guarded, { id: "reviewer", permissions: [allow("*")] }] }) },
     tool: {
       list: async () => [
@@ -295,7 +294,8 @@ describe("readStatus", () => {
     const status = await readStatus(statusContext("connected"), { host })
     expect(status).toMatchObject({ state: "connected", tools: 2, sites: [] })
     expect(status).not.toHaveProperty("account")
-    const failed = await readStatus(statusContext("connected", undefined, () => Promise.reject(new Error("offline"))), { host })
+    // A failed skill list leaves the rest of the status alone.
+    const failed = await readStatus(statusContext("connected", Promise.reject(new Error("offline"))), { host })
     expect(failed).toMatchObject({ state: "connected", tools: 2 })
   })
 
@@ -320,6 +320,23 @@ describe("readStatus", () => {
     const failed = await readStatus(statusContext("connected", Promise.reject(new Error("offline"))), { host, skills: own })
     expect(failed).toMatchObject({ state: "connected", tools: 2 })
     expect(failed).not.toHaveProperty("shadowedSkills")
+  })
+})
+
+describe("readStatus", () => {
+  test("makes no Jira call: it reads the host's lists, and runs no tool", async () => {
+    const used: string[] = []
+    const executed: string[] = []
+    const ctx = {
+      mcp: { list: async () => (used.push("mcp.list"), { data: [{ name: "jira", status: { status: "connected" }, integrationID: "mcp_fake" }] }) },
+      agent: { list: async () => (used.push("agent.list"), { data: [] }) },
+      tool: { list: async () => (used.push("tool.list"), [{ id: "jira_getJiraIssue", name: "getJiraIssue", options: { namespace: "jira" }, execute: async () => (executed.push("jira_getJiraIssue"), {}) }]) },
+      skill: { list: async () => (used.push("skill.list"), { data: [] }) },
+    } as unknown as StatusContext
+    await readStatus(ctx, { host })
+    // A tool call would be a Jira request: none, and nothing but the five host reads happened.
+    expect(executed).toEqual([])
+    expect([...used].sort()).toEqual(["agent.list", "mcp.list", "skill.list", "tool.list"])
   })
 })
 

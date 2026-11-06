@@ -80,8 +80,10 @@ the same question more cheaply, and Jira's own reads and writes cost no credits.
 ## Sign-in and status
 
 `/jira-status`'s last line is the next step. To sign in, run `/connect` and choose Jira, then press `o` or Enter to open
-the link (in a terminal, `opencode mcp auth jira` opens it automatically). Never ask for a password or an API token. The
-wrong account: `opencode mcp logout jira`, then sign in again. No tools, or a sign-in Jira refuses: an organisation admin
+the link; in a terminal, `opencode mcp auth jira` opens it, run from the project folder, and if it answers `MCP server
+not found: jira`, wait a few seconds and run it again. Never ask for a password or an API token. The wrong account: remove
+the account in `/connect` → Jira, or `opencode mcp logout jira` from the project folder (same retry, if it says the
+server is not found), then sign in again. No tools, or a sign-in Jira refuses: an organisation admin
 must allow Read and Search for Atlassian MCP in Atlassian Administration, Connectors, Atlassian MCP server, Permissions,
 and **Write** for any change. A change tool you expected but cannot see is that permission, not the plugin's deny.
 

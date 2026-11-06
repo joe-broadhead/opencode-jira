@@ -10,15 +10,13 @@ Unofficial; not affiliated with Atlassian.
 - OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4 and 2.2.5. Outside that range the plugin does not start, unless
   you set `allowUntestedHost`.
 - macOS or Linux, and a browser for the sign-in.
-- A Jira Cloud site. Atlassian does not say which plans include its MCP server: a free site is expected to work,
-  and the first live sign-in on one settles it.
+- A Jira Cloud site on a plan whose Atlassian Administration allows the Atlassian MCP server.
 - An organisation admin who allows **Read** and **Search** for Atlassian MCP in Atlassian Administration, Connectors,
   Atlassian MCP server, Permissions, and **Write** for any change.
 - Your own Jira permissions decide what you can see and change. A site admin can also block access by IP address.
 - The tools are Atlassian's, and Atlassian may change them without notice. A tool Atlassian adds asks before it runs
   until a release of this plugin knows it.
-- The tool list, and which of them read and write, comes from Atlassian's "Supported tools" page until a release
-  reconciles it with a live tool list. Treat a tool's class as Atlassian's description of it, not as its annotation.
+- The tools, and which of them read and write, are Atlassian's.
 
 ## Install
 
@@ -41,8 +39,9 @@ version does not update: remove the `@version` from its `plugins` entry first.
 Run `/connect` and choose **Jira** (it is listed under MCP). In the terminal UI, press `o` or Enter to open the link
 to Atlassian's sign-in page in your browser, sign in, and approve the access. No API token is needed or used.
 
-From a terminal, run `opencode mcp auth jira` instead; it opens the link automatically. `/mcps` also offers the same
-sign-in.
+From a terminal, run `opencode mcp auth jira` instead. Run it from the project folder where the plugin is installed; if
+it answers `MCP server not found: jira`, OpenCode is still opening that folder: wait a few seconds and run it again.
+`/mcps` also offers the same sign-in.
 
 The plugin pins the access it asks for: Jira read, write and search, plus your account name and an offline token. It does
 not ask for delete, for project or screen administration, or for Confluence, and because the request is pinned,
@@ -54,8 +53,8 @@ you belong to more than one, then names it before every change.
 When the sign-in expires and cannot be renewed, `/connect` marks the Jira account as needing a new sign-in, and
 OpenCode shows its "MCP server needs authentication" notice.
 
-To sign out, or to switch account, run `opencode mcp logout jira`, or remove the account in `/connect` → Jira. Then
-sign in again. To sign out before you remove the plugin, see [Uninstall](#uninstall).
+To sign out, or to switch account: Run it from the project folder where the plugin is installed, or remove the account in `/connect` → **Jira**. If it answers `MCP server not found: jira`, OpenCode is still opening that folder: wait a few seconds and run it again. Then sign in again. To sign out before you remove the plugin, see
+[Uninstall](#uninstall).
 
 ## Use
 
@@ -211,7 +210,7 @@ Run `/jira-status` first. Its last line is the next step.
 
 | Status or error | What to do |
 | --- | --- |
-| Connection: sign-in required | Run `/connect` and choose Jira, then press `o` or Enter to open the link. In a terminal, `opencode mcp auth jira` opens it automatically. |
+| Connection: sign-in required | Run `/connect` and choose Jira, then press `o` or Enter to open the link. In a terminal, `opencode mcp auth jira` opens it automatically: run it from the project folder, and if it answers `MCP server not found: jira`, wait a few seconds and run it again. |
 | Connection: connecting | Wait a few seconds, then run `/jira-status` again. |
 | Connection: failed | Check your network, then run `/jira-status` again. With your own `mcp.servers.jira` that has `"oauth": false`, check the API token in its headers. |
 | Connection: disabled | Enable `jira` in `/mcps`, or remove `"disabled": true` from `mcp.servers.jira` in `opencode.json`. |
@@ -228,12 +227,12 @@ Run `/jira-status` first. Its last line is the next step.
 | Access: default rules missing or not added | Some agents lack the default rules (see the agents row), or OpenCode could not add them (see the OpenCode row). Follow the next step. |
 | Account or Sites: not read yet | Nothing is wrong: the plugin learns both from your own calls. Make one Jira request in the session, then run `/jira-status` again. |
 | A change is refused with no permission | This plugin's pinned request has no delete or manage scope, so Atlassian never loads those tools and no admin can add the scope to it. A new release must request it, an admin must enable the permission group, and a rule keeps it asking. |
-| Sign-in succeeded but calls fail | The site is wrong, or the token was consented for another site. Run `opencode mcp logout jira`, sign in again, and name the site. |
+| Sign-in succeeded but calls fail | The site is wrong, or the token was consented for another site. Sign out and in again (see [Sign in](#sign-in)) from the project folder, and name the site. |
 | Rate limited | Atlassian publishes `Retry-After` and `X-RateLimit-*`. Wait the seconds it names, and make fewer calls at once. |
 | The site's email stopped | A free site sends at most 100 notification emails a day, automation included, and an agent can spend them. |
 | Agents without default rules | Put the default rules shown by `/jira-status` first in each listed agent's own permissions, in `opencode.json` or the agent's Markdown file, followed by your top-level rules for Jira tools. |
 | OpenCode: untested | OpenCode is not 2.2.3, 2.2.4 or 2.2.5. Inside `>=2.2.3 <2.3.0` the plugin runs normally; outside it, it runs only because `allowUntestedHost` is set. If Jira misbehaves, use a tested release. |
-| Signed in to the wrong Atlassian account | Run `opencode mcp logout jira` (or remove the account in `/connect` → Jira), then sign in again. |
+| Signed in to the wrong Atlassian account | Remove the account in `/connect` → Jira, or run `opencode mcp logout jira` from the project folder; if it answers `MCP server not found: jira`, wait a few seconds and run it again. Then sign in again. |
 | Asked to sign in again after the token expires | The sign-in could not be renewed. Sign in again with `/connect` → Jira; your Atlassian session may still be open in the browser. |
 | A Jira tool is refused in `opencode run` | Nobody could answer its prompt. A read runs if you add an `allow` rule for it to the agent's own `permissions`. A change needs an interactive session: this plugin documents no `allow` for one, and a saved one would run it unasked in every agent of the project. |
 | A skill seems ignored, and status names a skill to rename or move | A skill of yours with the same id, such as `jira`, replaces the plugin's. Rename or move it. |
@@ -265,12 +264,12 @@ A script's errors from the tools RPC have their own codes, listed in
 
 ## Uninstall
 
-Sign out while the plugin is still installed: once it is removed, OpenCode no longer knows the `jira` server, so
-`opencode mcp logout jira` fails with `MCP server not found: jira` and the sign-in stays in OpenCode's credential
-store.
+Sign out while the plugin is still installed: once it is removed, OpenCode no longer knows the `jira` server and the
+sign-in stays in OpenCode's credential store.
 
-1. Sign out: `opencode mcp logout jira`. Right after OpenCode starts or reloads, it can answer
-   `MCP server not found: jira` for a few seconds; wait, then run it again.
+1. Sign out: remove the account in `/connect` → **Jira**, or run `opencode mcp logout jira` from the project folder
+   where the plugin is installed. If it answers `MCP server not found: jira`, OpenCode is still opening that folder:
+   wait a few seconds and run it again.
 2. Check: `opencode auth list` no longer lists **Jira**.
 3. Remove the plugin: `opencode plugin remove @joe-broadhead/opencode-jira`, then `opencode reload`.
    `opencode mcp list` no longer lists `jira`.

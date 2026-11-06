@@ -295,10 +295,16 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     })
     // Every known tool that is not denied, and the fake's new one, which is the only unknown; the denied ones apart.
     const tools = READ_TOOLS.length + WRITE_TOOLS.length + 1
-    await host.until(`jira is connected with its ${tools} tools`, async () => {
+    const ready = await host.until(`jira is connected with its ${tools} tools`, async () => {
       const output = await status()
-      return output.state === "connected" && output.tools === tools && output.unknownCount === 1 && output.deniedTools.length === DENY_TOOLS.length
+      return output.state === "connected" && output.tools === tools && output.unknownCount === 1 && output.deniedTools.length === DENY_TOOLS.length ? output : undefined
     })
+    // Status makes no Atlassian call: the status command and the RPC (which the dialog asks) add no tool call.
+    const beforeStatus = fake.calls.length
+    await status()
+    await host.api("POST", "/api/rpc/jira.issues/status", { input: {} })
+    expect(fake.calls.length).toBe(beforeStatus)
+    expect(ready.state).toBe("connected")
     const create = async (body: Record<string, unknown>) => {
       const created = await host.api<Record<string, any>>("POST", "/api/session", body)
       return (created.id ?? created.data?.id) as string

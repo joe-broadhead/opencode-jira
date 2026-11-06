@@ -5,10 +5,10 @@ import { checkHost } from "../../src/host-version.js"
 import { buildStatus, formatStatus, StatusRpc, type Status } from "../../src/status.js"
 import tui, { setupView, viewMessage, type ViewContext } from "../../src/tui.js"
 
-const SIGN_IN = "Run /connect and choose Jira, then press o or Enter to open the link (in a terminal, opencode mcp auth jira opens it automatically)."
+const SIGN_IN = "Run /connect and choose Jira, then press o or Enter to open the link (in a terminal, opencode mcp auth jira opens it automatically; run it from the project folder, and if it answers MCP server not found: jira, wait a few seconds and run it again)."
 
 const status = (overrides: Partial<Parameters<typeof buildStatus>[0]> = {}): Status =>
-  buildStatus({ server: { status: "connected" }, source: { type: "plugin", url: "https://mcp.atlassian.com/v2/mcp?tools=all", signIn: "oauth" }, tools: ["search_records_by_name"], host: checkHost("2.2.3", false), ...overrides })
+  buildStatus({ server: { status: "connected" }, source: { type: "plugin", url: "https://mcp.atlassian.com/v2/mcp?tools=all", signIn: "oauth" }, tools: ["searchJiraIssuesUsingJql"], host: checkHost("2.2.3", false), ...overrides })
 
 /** Everything the view touches, recorded. */
 function fake(options: { answer?: () => Promise<unknown> } = {}) {

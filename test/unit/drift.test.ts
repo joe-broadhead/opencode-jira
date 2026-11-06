@@ -1,5 +1,5 @@
-// The drift script against saved tool lists: the recorded list of names (the research form), OpenCode's form with
-// schemas, and edited copies. It reads files only.
+// The drift script against saved tool lists: the captured fixture (one name and description per tool), OpenCode's form
+// with schemas, and edited copies. It reads files only.
 import { afterAll, describe, expect, test } from "bun:test"
 import { spawnSync } from "node:child_process"
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
@@ -10,7 +10,7 @@ import { DENY_TOOLS, PARAMETERS, READ_TOOLS, WRITE_TOOLS } from "../../src/jira-
 
 const SCRIPT = fileURLToPath(new URL("../../scripts/check-jira-tools.mjs", import.meta.url))
 const TOOLS = fileURLToPath(new URL("../../src/jira-tools.ts", import.meta.url))
-const FIXTURE = fileURLToPath(new URL("./jira-tools.json", import.meta.url))
+const FIXTURE = fileURLToPath(new URL("./live-tools.json", import.meta.url))
 const dir = mkdtempSync(join(tmpdir(), "jira-drift-"))
 afterAll(() => rmSync(dir, { recursive: true, force: true }))
 

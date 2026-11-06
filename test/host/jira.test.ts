@@ -12,7 +12,7 @@ import { tmpdir } from "node:os"
 import { join, sep } from "node:path"
 import { Plugin } from "@opencode/plugin"
 import { OAUTH_SCOPE, SUPPORTED_HOST, TESTED_HOSTS } from "../../src/constants.js"
-import { DENY_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
+import { DENY_TOOLS, NOT_GRANTED_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
 import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
 import { StatusRpc } from "../../src/status.js"
@@ -23,7 +23,7 @@ import { agentRules, attempt, cleanup, effect, HOST_VERSION, session, startHost,
 const AGENT_RULES = defaultRules().map((rule, index, rules) => `  ${JSON.stringify(rule)}${index < rules.length - 1 ? "," : ""}`).join("\n")
 const AGENTS_NEXT_STEP = "Put the default rules shown by /jira-status first in each listed agent's own permissions, in opencode.json or the agent's Markdown file, followed by your top-level rules for Jira tools."
 const KEY = "sk-fake-host-test-0123456789"
-const SIGN_IN = "Run /connect and choose Jira, then press o or Enter to open the link (in a terminal, opencode mcp auth jira opens it automatically)."
+const SIGN_IN = "Run /connect and choose Jira, then press o or Enter to open the link (in a terminal, opencode mcp auth jira opens it automatically; run it from the project folder, and if it answers MCP server not found: jira, wait a few seconds and run it again)."
 const OFF = DENY_TOOLS.join(", ").replace(/, ([^,]*)$/, " and $1")
 const NOT_READ_YET = "not read yet: it appears after the first Jira call since OpenCode started"
 
@@ -186,12 +186,15 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
   test("H5: /jira-status reports the connection, the account, the sites, the tools and the unguarded agent's fix", async () => {
     await jiraTools(host)
     const sessionID = await session(host)
+    // Status makes no Atlassian call: the dialog and the command read the same model, so the count must not move.
+    const before = host.fake.calls.length
     const text = await status(host, sessionID)
     expect(text).toContain(`- Connection: connected (${host.fake.url}, registered by this plugin)`)
     // Before the user's own two account reads: both rows say so, and neither has anything to show.
     expect(text).toContain(`- Account: ${NOT_READ_YET}\n`)
     expect(text).toContain(`- Sites: ${NOT_READ_YET}\n`)
-    expect(text).toContain(`- Access: reads run without asking; the ${WRITE_TOOLS.length} changes ask first; ${DENY_TOOLS.length} tools are off, and the deletes and the project and screen settings are not granted either; default rules missing in the agents listed below\n`)
+    const withheld = `${NOT_GRANTED_TOOLS.slice(0, -1).join(", ")} and ${NOT_GRANTED_TOOLS.at(-1)}`
+    expect(text).toContain(`- Access: reads run without asking; the ${WRITE_TOOLS.length} changes ask first; ${DENY_TOOLS.length} tools are off, and ${withheld} are not granted either; default rules missing in the agents listed below\n`)
     expect(text).toContain(`- Tools: ${AVAILABLE} available, 1 unknown: shiny_new_tool (unknown tools ask before running); off by default: ${OFF}; not granted by scope: `)
     expect(text).toContain(`- Agents without default rules: reviewer\n${AGENT_RULES}\n`)
     expect(text).toContain(`- Next step: ${AGENTS_NEXT_STEP}`)
@@ -201,6 +204,8 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(output).toMatchObject({ state: "connected", tools: AVAILABLE, deniedTools: [...DENY_TOOLS], notGranted: ["getJiraScreen", "getJiraWorkflowEditorLink", "getJiraWorkflows"], unknownCount: 1, listing: false, unguardedAgents: ["reviewer"] })
     expect(output).not.toHaveProperty("account")
     expect(output).toMatchObject({ sites: [] })
+    // Neither the command nor the RPC, which is what the dialog asks, reached Atlassian.
+    expect(host.fake.calls.length).toBe(before)
 
     // The user's own two account reads fill both rows, with a display name and site names and nothing else. The host's
     // executors skip execute.after hooks, so these go through the tools RPC, which records them with the same function;

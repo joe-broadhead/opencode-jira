@@ -36,6 +36,8 @@ describe("docs", () => {
 
   test.each(["README.md", "docs/configuration.md", "docs/scripting.md", "docs/jelly.md", "SECURITY.md"])("%s says nothing provisional or pending", (file) => {
     expect(text(file)).not.toMatch(/provisional|not yet (?:checked|published|signed)|private package|TODO/i)
+    // Nor narrates the release's own open checks. `docs/architecture.md` keeps what the first sign-in must confirm.
+    expect(text(file)).not.toMatch(/settles it|expected to work|first live sign-in|free plan|which plans/i)
   })
 
   test("the README names no version of the plugin, not even in an example", () => {
@@ -105,6 +107,23 @@ describe("docs", () => {
     }
   })
 
+  test("keeps the CLI sign-in and sign-out commands, with the folder and cold-start caveat, and /connect first", () => {
+    const caveat = "Run it from the project folder where the plugin is installed, or remove the account in `/connect` → **Jira**. If it answers `MCP server not found: jira`, OpenCode is still opening that folder: wait a few seconds and run it again."
+    expect(text("README.md")).toContain(caveat)
+    // `mcp auth` carries the same folder and retry advice.
+    expect(text("README.md")).toContain("Run it from the project folder where the plugin is installed; if it answers `MCP server not found: jira`, OpenCode is still opening that folder: wait a few seconds and run it again")
+    expect(text("skills/jira/SKILL.md")).toContain("run from the project folder, and if it answers `MCP server not found: jira`, wait a few seconds and run it again")
+    // The status next step and the tools RPC's AUTH_REQUIRED name `mcp auth`, so each carries the retry.
+    for (const file of ["src/status.ts", "src/host/tools-rpc.ts"]) {
+      expect(text(file)).toContain("run it from the project folder, and if it answers MCP server not found:")
+    }
+    // The Uninstall offers /connect first, and the CLI from the project folder second.
+    const uninstall = /## Uninstall(.*?)## Links/.exec(text("README.md"))?.[1] ?? ""
+    expect(uninstall.indexOf("/connect")).toBeGreaterThanOrEqual(0)
+    expect(uninstall.indexOf("/connect")).toBeLessThan(uninstall.indexOf("opencode mcp logout jira"))
+    expect(text("README.md")).toContain("Signed in to the wrong Atlassian account | Remove the account in `/connect` → Jira")
+  })
+
   // Once the plugin is removed and OpenCode reloads, `mcp logout jira` finds no server: sign out first.
   test("the README's Uninstall signs out before it removes the plugin", () => {
     const uninstall = /## Uninstall(.*?)## Links/.exec(text("README.md"))?.[1] ?? ""
@@ -165,6 +184,14 @@ describe("docs", () => {
     expect(guide).toContain("Every call needs a `cloudId`")
     expect(guide).toContain("one at a time")
     expect(guide).toContain("Rovo credits")
+  })
+
+  test("the Jelly summary says the plugin makes changes, and the Requirements carry no process text", () => {
+    const summary = (JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { jelly: { summary: string } }).jelly.summary
+    expect(summary).toBe("Find and read your Jira work items, boards and sprints, and make selected changes with approval.")
+    const requirements = /## Requirements(.*?)## Install/.exec(text("README.md"))?.[1] ?? ""
+    expect(requirements).toContain("The tools, and which of them read and write, are Atlassian's.")
+    expect(requirements).not.toMatch(/Supported tools|reconcil|live tool list/)
   })
 
   test("the README's limits say the tool table comes from Atlassian's docs, and what Jelly cannot ask about", () => {

@@ -44,6 +44,7 @@ npm run check
 | `host` | `bun test ./test/host`: the plugin inside an embedded OpenCode host, once on each tested release (`@opencode/sdk` 2.2.3, 2.2.4 and 2.2.5) |
 | `pack` | `bun test ./test/pack`: builds, packs and installs the package, imports both entry points, and loads it in stock OpenCode 2.2.3, 2.2.4 and 2.2.5 |
 | `forbidden` | `node scripts/check-forbidden.mjs`: scans `src/`, `test/`, `scripts/` and `dist/` for forbidden APIs and machine-local paths |
+| `icons` | `node scripts/check-icons.mjs`: the SVG is clean and exact, the 128 and 256 PNGs exist, and `exports` and `files` agree |
 | `whitelist` | Checks `package.json` against the approved package shape, and that `dist/` holds exactly `index.js` and `tui.js` |
 
 To run some stages only, name them; they run in the order given:
@@ -108,7 +109,7 @@ not drift: `NOT_GRANTED_TOOLS` names the three this plugin's scope never grants.
 
 The names and classes come from Atlassian's own list of its v2 MCP tools
 ([Supported tools](https://support.atlassian.com/atlassian-ai-gateway/docs/supported-tools/)), recorded in
-`test/unit/jira-tools.json`. That page gives no input schemas or annotations, so `PARAMETERS` is empty, and the skills
+`test/unit/live-tools.json`. That page gives no input schemas or annotations, so `PARAMETERS` is empty, and the skills
 name tools without their inputs: in Code Mode each call's signature gives the model the parameter names. Once a tool
 list from a signed-in server is saved, reconciling is a data change, made with the drift check below.
 
@@ -123,7 +124,7 @@ it, and it never calls Jira or reads a credential. Save the tool list first, by 
   annotations.
 
 A list in the research form, `{ "tools": [{ "name", "annotations", "inputs": ["name*:type", …] }] }`, works too, and
-`annotations` and `inputs` may be missing, as in `test/unit/jira-tools.json`. Keep a saved list out of this
+`annotations` and `inputs` may be missing, as in `test/unit/live-tools.json`. Keep a saved list out of this
 repository, except as that fixture, which lists names and input schemas only.
 
 **Check the shape first.** The list must be the flat one from `?tools=all`. If it holds `discover`, `executeRead`,
@@ -149,9 +150,12 @@ npm run drift -- <tools.json> --strict
 - Exit codes: `0` for no drift, or drift without `--strict`; `1` for drift with `--strict`; `2` for a usage or file
   error.
 
-`test/unit/jira-tools.json` records the list the plugin was built from, and the drift test runs the check on it with
-`--strict`, so `src/jira-tools.ts` must match it exactly. Replace that file with a newly saved list (the same fields,
-and a `source` line with no local path) when Jira changes its tools.
+`test/unit/live-tools.json` is the captured list, and two tests read it. The drift test runs the check on it with
+`--strict`, so `src/jira-tools.ts` must match it exactly; `test/unit/live-tools.test.ts` asserts that every tool in it
+classifies as a read, a write or a denied tool, has exactly one deciding rule with that class's effect, and is hidden
+when it is denied. **Replacing that one file with a list from a signed-in server is the whole reconcile step**: the two
+tests then fail on every name, class or effect the lists, the rules, `jelly.tools` or the skills do not cover. Keep the
+shape (`name` and `description` per tool) and a `source` line with no local path.
 
 ### Updating the tool lists
 

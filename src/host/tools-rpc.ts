@@ -58,7 +58,7 @@ export const NEXT_STEPS: NextSteps = {
   SESSION_AGENT_REQUIRED: `Create a session that names an agent, such as POST /api/session with {"agent":"build"}, and pass its id.`,
   PERMISSION_DENIED: "Add an allow rule for the tool to the session's agent or to the session, or use a session whose agent allows it.",
   SERVER_CONFLICT: `Run /jira-status, then point your own mcp.servers.${SERVER_NAME} in opencode.json at the "?tools=all" URL it names or remove it, and restart OpenCode.`,
-  AUTH_REQUIRED: `Run /connect and choose Jira, then press o or Enter to open the link (in a terminal, opencode mcp auth ${SERVER_NAME} opens it automatically).`,
+  AUTH_REQUIRED: `Run /connect and choose Jira, then press o or Enter to open the link (in a terminal, opencode mcp auth ${SERVER_NAME} opens it automatically; run it from the project folder, and if it answers MCP server not found: ${SERVER_NAME}, wait a few seconds and run it again).`,
   CONNECTING: "Wait a few seconds, then call the method again.",
   CONNECTION_FAILED: "Check your network, then run /jira-status and follow its next step.",
   DISABLED: `Enable the ${SERVER_NAME} server in /mcps, or remove "disabled": true from mcp.servers.${SERVER_NAME} in opencode.json.`,
