@@ -5,8 +5,8 @@ description: Load before the first Jira tool call (jira_*, tools.jira.*). For th
 
 # Jira
 
-Jira calls 52 named tools, or "work items" in its own newer wording; the words ticket and issue mean the same thing.
-Tools are `jira_<tool>`, or `tools.jira.<tool>` in Code Mode. The tools named here are exact: don't `search()` for one
+Atlassian calls them "work items" in its newer wording; the words ticket and issue mean the same thing. Tools are
+`jira_<tool>`, or `tools.jira.<tool>` in Code Mode, and every call takes the site's `cloudId`. The tools named here are exact: don't `search()` for one
 whose signature is already in view; when it isn't, `search()` once for that exact name, then call it. Each call's
 signature gives its inputs, and Atlassian may change them without notice, so read it rather than guess. Make calls one at
 a time: Atlassian rate-limits per client and publishes `Retry-After` and `X-RateLimit-*`; on a rate limit wait the

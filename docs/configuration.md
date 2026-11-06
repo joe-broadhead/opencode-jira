@@ -329,9 +329,9 @@ token, no header and no URL query, and makes no Atlassian call. `version`, `host
 | `nextStep` | Exactly one next step: the `Next step` row, `Nothing to do.` when nothing is needed |
 
 The `Access` row states the posture the default rules fix, from the tool lists: "reads run without asking; the 14
-changes ask first; 7 tools are off and not granted". Then it says whether those rules are in place: "no agent runs new
-Jira tools unasked", "default rules missing in the agents listed below", or "default rules not added (see the OpenCode
-row)".
+changes ask first; 7 tools are off, and the deletes and the project and screen settings are not granted either". Then it
+says whether those rules are in place: "no agent runs new Jira tools unasked", "default rules missing in the agents
+listed below", or "default rules not added (see the OpenCode row)".
 
 The `Sites` row names the sites your account reaches, or says the read has not happened yet. It sits between `Access` and
 `Tools`.

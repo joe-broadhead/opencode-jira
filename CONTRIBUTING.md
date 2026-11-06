@@ -124,7 +124,11 @@ it, and it never calls Jira or reads a credential. Save the tool list first, by 
 
 A list in the research form, `{ "tools": [{ "name", "annotations", "inputs": ["name*:type", …] }] }`, works too, and
 `annotations` and `inputs` may be missing, as in `test/unit/jira-tools.json`. Keep a saved list out of this
-repository, except as that fixture, which lists names and input schemas only. Then:
+repository, except as that fixture, which lists names and input schemas only.
+
+**Check the shape first.** The list must be the flat one from `?tools=all`. If it holds `discover`, `executeRead`,
+`executeWrite` or `executeDestructive`, the URL lost its query, and the check stops with exit code 2: the plugin's table
+and every rule describe tools that never arrive, so re-save the list from the URL the plugin registers. Then:
 
 ```sh
 npm run drift -- <tools.json>

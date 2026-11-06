@@ -38,6 +38,13 @@ if (!process.features.typescript) fail(`Node ${process.versions.node} cannot loa
 
 const known = await loadKnown()
 const live = readToolList(file)
+// The plugin registers `?tools=all`, the flat list. Without that query Atlassian sends the meta-tool shape instead, and
+// every rule in this repository would describe tools that never arrive: stop before comparing names.
+const META = ["discover", "executeRead", "executeWrite", "executeDestructive"]
+const meta = META.filter((name) => live.has(name))
+if (meta.length) {
+  fail(`this list is Atlassian's meta-tool shape (it holds ${meta.join(", ")}), not the flat one. Save it from https://mcp.atlassian.com/v2/mcp?tools=all, which is the URL the plugin registers.`)
+}
 
 const added = [...live.keys()].filter((name) => !known.classOf.has(name)).sort()
 const removed = [...known.classOf.keys()].filter((name) => !live.has(name)).sort()

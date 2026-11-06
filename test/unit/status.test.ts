@@ -23,7 +23,7 @@ const base: StatusFacts = {
 }
 const guarded = { id: "build", permissions: [allow("*"), ...defaultRules()] }
 const RULES = "no agent runs new Jira tools unasked"
-const POSTURE = `reads run without asking; the ${WRITE_TOOLS.length} changes ask first; ${DENY_TOOLS.length} tools are off and not granted`
+const POSTURE = `reads run without asking; the ${WRITE_TOOLS.length} changes ask first; ${DENY_TOOLS.length} tools are off, and the deletes and the project and screen settings are not granted either`
 const ACCESS = `${POSTURE}; ${RULES}`
 const NOT_GRANTED = `not granted by scope: ${NOT_GRANTED_TOOLS.slice(0, -1).join(", ")} and ${NOT_GRANTED_TOOLS.at(-1)}`
 
@@ -159,7 +159,7 @@ describe("buildStatus", () => {
   test("the Access row says whether the default rules are in place, from what status can see", () => {
     expect(formatStatus(buildStatus(base))).toContain(`- Access: ${ACCESS}\n`)
     // The posture is the tool lists': 14 changes ask, 7 tools are off.
-    expect(ACCESS).toContain("the 14 changes ask first; 7 tools are off and not granted")
+    expect(ACCESS).toContain("the 14 changes ask first; 7 tools are off, and the deletes and the project and screen settings are not granted either")
     const missing = buildStatus({ ...base, agents: [{ id: "reviewer", permissions: [allow("*")] }] })
     expect(formatStatus(missing)).toContain(`- Access: ${POSTURE}; default rules missing in the agents listed below\n`)
     const problem = "RULES_NOT_ADDED: Jira's default permission rules could not be added (boom), so Jira tools may run without asking. Next step: Restart OpenCode."

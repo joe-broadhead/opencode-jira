@@ -120,6 +120,13 @@ describe("npm run drift", () => {
     expect(out).toContain("No drift apart from the removed tools above.")
   })
 
+  test("stops on Atlassian's meta-tool shape: the plugin registers the flat list, so the whole table would be wrong", () => {
+    const { code, err } = drift({ tools: ["discover", "executeRead", "executeWrite", "executeDestructive", "atlassianUserInfo"].map((name) => ({ name })) }, ["--strict"])
+    expect(code).toBe(2)
+    expect(err).toContain("meta-tool shape")
+    expect(err).toContain("https://mcp.atlassian.com/v2/mcp?tools=all")
+  })
+
   test("refuses a file that is not a tool list, and a missing argument, with exit code 2", () => {
     expect(drift({ servers: [] }).code).toBe(2)
     const none = spawnSync("node", [SCRIPT], { encoding: "utf8" })

@@ -65,7 +65,7 @@ export interface Status {
   readonly tools: number
   /** The listed tools that the default rules deny, such as editJiraEntityProperty; a later rule of the user's can turn one on. */
   readonly deniedTools: readonly string[]
-  /** Known reads the sign-in's scope does not grant, so Atlassian never lists them; empty for your own API-token entry. */
+  /** Known reads the sign-in's scope does not grant, so Atlassian never lists them; empty for an entry of your own. */
   readonly notGranted: readonly string[]
   /** True while a server that just connected may still be listing its tools. */
   readonly listing: boolean
@@ -227,7 +227,7 @@ function sitesText(sites: readonly string[]) {
  * The permission posture the default rules fix, derived from the tool lists so it cannot go stale, and whether those
  * rules are in place: facts status can check, not a fixed claim.
  */
-const POSTURE = `reads run without asking; the ${WRITE_TOOLS.length} changes ask first; ${DENY_TOOLS.length} tools are off and not granted`
+const POSTURE = `reads run without asking; the ${WRITE_TOOLS.length} changes ask first; ${DENY_TOOLS.length} tools are off, and the deletes and the project and screen settings are not granted either`
 
 function accessText({ problems, unguardedAgents }: Status) {
   const rules = problems.some((problem) => problem.startsWith(RULES_NOT_ADDED))

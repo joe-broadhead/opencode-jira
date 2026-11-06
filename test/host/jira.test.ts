@@ -189,7 +189,7 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     // Before the user's own two account reads: both rows say so, and neither has anything to show.
     expect(text).toContain(`- Account: ${NOT_READ_YET}\n`)
     expect(text).toContain(`- Sites: ${NOT_READ_YET}\n`)
-    expect(text).toContain(`- Access: reads run without asking; the ${WRITE_TOOLS.length} changes ask first; ${DENY_TOOLS.length} tools are off and not granted; default rules missing in the agents listed below\n`)
+    expect(text).toContain(`- Access: reads run without asking; the ${WRITE_TOOLS.length} changes ask first; ${DENY_TOOLS.length} tools are off, and the deletes and the project and screen settings are not granted either; default rules missing in the agents listed below\n`)
     expect(text).toContain(`- Tools: ${AVAILABLE} available, 1 unknown: shiny_new_tool (unknown tools ask before running); off by default: ${OFF}; not granted by scope: `)
     expect(text).toContain(`- Agents without default rules: reviewer\n${AGENT_RULES}\n`)
     expect(text).toContain(`- Next step: ${AGENTS_NEXT_STEP}`)
