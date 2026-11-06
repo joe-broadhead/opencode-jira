@@ -67,6 +67,11 @@ export interface FakeMcpOptions {
   /** `jira` lists every tool the plugin knows, and the new tool. */
   readonly catalog?: "jira"
   /**
+   * Advertise client ID metadata documents, as Atlassian does. With it, a client that sets no `redirect_uri` uses its own
+   * document; one that pins a callback must fall back to dynamic registration, which is the point of the fallback test.
+   */
+  readonly cimd?: boolean
+  /**
    * Whether the token endpoint issues a refresh token. Without one, a 401 later needs a new sign-in and leaves the
    * credential in place, as Jira does when it issues no refresh token.
    */
@@ -201,6 +206,7 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
         code_challenge_methods_supported: ["S256"],
         token_endpoint_auth_methods_supported: ["none", "client_secret_basic", "client_secret_post"],
         scopes_supported: [...ATLASSIAN_ALL_SCOPES],
+        ...(options.cimd ? { client_id_metadata_document_supported: true } : {}),
       })
     }
     // Like a signed-in browser: the authorization endpoint sends the loopback callback a code, and the token endpoint

@@ -6,6 +6,8 @@
 import { ROOT } from "./isolate.js"
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test"
 import { existsSync, realpathSync } from "node:fs"
+import { createServer } from "node:net"
+import type { AddressInfo } from "node:net"
 import { tmpdir } from "node:os"
 import { join, sep } from "node:path"
 import { Plugin } from "@opencode/plugin"
@@ -276,6 +278,15 @@ describe("the user's own jira server, with a secret in its headers", () => {
     }
   })
 })
+
+/** A loopback port nothing listens on yet, for a pinned callback. */
+async function freePort() {
+  const server = createServer()
+  await new Promise<void>((done) => server.listen(0, "127.0.0.1", done))
+  const { port } = server.address() as AddressInfo
+  await new Promise((done) => server.close(() => done(undefined)))
+  return port
+}
 
 const scripted = (host: Host) => host.client.sessions as unknown as {
   create: (input: object) => Promise<{ id: string }>
@@ -582,6 +593,55 @@ describe("the sign-in OpenCode starts", () => {
     } finally {
       await oauth.cancel({ integrationID, attemptID: attempt.attemptID, location: host.location }).catch(() => {})
     }
+  })
+})
+
+// The documented remedy for Jira's one real sign-in risk: pin the callback, which turns the client ID metadata document
+// off and makes OpenCode register that exact loopback URL dynamically. The fake advertises CIMD, as Atlassian does, so
+// this is a fallback and not the only path it has.
+describe("the redirect_uri fallback when a loopback port is refused", () => {
+  let host: Host
+  let port: number
+  const callback = () => `http://127.0.0.1:${port}/callback`
+  beforeAll(async () => {
+    port = await freePort()
+    host = await startHost({
+      oauth: true,
+      fake: { cimd: true },
+      config: (url) => ({ mcp: { servers: { jira: { type: "remote", url, oauth: { scope: OAUTH_SCOPE, redirect_uri: callback(), callback_port: port } } } } }),
+    })
+  })
+  afterAll(() => host?.close())
+
+  test("adopts the entry, registers that exact callback dynamically, and completes the sign-in", async () => {
+    await jiraTools(host)
+    host.fake.challenge = true
+    const { data: servers } = await host.client.mcp.list({ location: host.location })
+    const integrationID = servers.find((item) => item.name === "jira")?.integrationID
+    expect(integrationID).toBeDefined()
+    const { data: integration } = await host.client.integration.get({ integrationID: integrationID!, location: host.location })
+    // The entry is adopted, not replaced: status names it as the user's own, with OAuth.
+    expect(await statusRpc(host)).toMatchObject({ source: { type: "adopted", signIn: "oauth" } })
+    const oauth = (host.client.integration as unknown as { oauth: Record<"connect", (input: object) => Promise<{ data: { attemptID: string; url: string } }>> }).oauth
+    const { data: attempt } = await oauth.connect({ integrationID: integrationID!, methodID: (integration.methods as { id: string }[])[0]!.id, location: host.location })
+    const url = new URL(attempt.url)
+    expect(url.searchParams.get("redirect_uri")).toBe(callback())
+    // A registered client, with the pinned URL, rather than OpenCode's client document.
+    expect(url.searchParams.get("client_id")).toBe("fake-client-1")
+    expect(host.fake.registrations).toHaveLength(1)
+    expect(host.fake.registrations[0]).toMatchObject({ redirect_uris: [callback()], scope: OAUTH_SCOPE, token_endpoint_auth_method: "none" })
+    // The browser comes back to the port the user pinned, and the sign-in completes.
+    const redirect = await fetch(attempt.url, { redirect: "manual" })
+    const target = redirect.headers.get("location")
+    expect(target).toMatch(new RegExp(`^${callback().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\?`))
+    await fetch(target!)
+    await until("the token is exchanged", async () => host.fake.tokens.find((token) => token.grant_type === "authorization_code"))
+    host.fake.challenge = false
+    await until("the server is connected after the fallback sign-in", async () => {
+      const { data } = await host.client.mcp.list({ location: host.location })
+      return data.find((item) => item.name === "jira")?.status.status === "connected"
+    })
+    expect(await statusRpc(host)).toMatchObject({ state: "connected", source: { type: "adopted", signIn: "oauth" } })
   })
 })
 
