@@ -12,8 +12,10 @@ const env = { ...process.env, PATH: `${join(root, "node_modules", ".bin")}${deli
 const { TESTED_HOSTS } = await import(new URL("../src/constants.ts", import.meta.url).href)
 
 // The approved package shape. Change it here only together with the release policy.
-const FILES = ["dist", "assets/icon.svg", "skills", "README.md", "LICENSE", "CHANGELOG.md"]
+const FILES = ["dist", "assets/icon.svg", "assets/icon-128.png", "assets/icon-256.png", "skills", "README.md", "LICENSE", "CHANGELOG.md"]
 const EXPORTS = { ".": "index", "./tui": "tui" }
+// The icon kit's three files, exported exactly so a consumer can resolve them from the installed package.
+const ASSET_EXPORTS = { "./icon.svg": "assets/icon.svg", "./icon-128.png": "assets/icon-128.png", "./icon-256.png": "assets/icon-256.png" }
 // dist/ holds one self-contained bundle per export, and nothing else (scripts/build.mjs).
 const DIST = Object.values(EXPORTS).map((base) => `${base}.js`).sort()
 // The tested OpenCode line. The host provides @opencode/plugin, OpenTUI and Solid, so the package declares no peers.
@@ -26,6 +28,7 @@ const stages = {
   typecheck: () => run("tsc", ["--noEmit", "-p", "tsconfig.json"]),
   unit: () => run("bun", ["test", "./test/unit"]),
   build: () => run("node", ["scripts/build.mjs"]),
+  icons: () => run("node", ["scripts/check-icons.mjs"]),
   host: host,
   pack: () => run("bun", ["test", "./test/pack"]),
   forbidden: () => run("node", ["scripts/check-forbidden.mjs"]),
@@ -101,11 +104,20 @@ function whitelist() {
   for (const key of Object.keys(EXPORTS)) if (!exportsSeen.includes(key)) problems.push(`"exports" is missing "${key}".`)
   for (const key of exportsSeen) {
     const base = EXPORTS[key]
-    if (!base) { problems.push(`"exports" must not contain "${key}".`); continue }
-    // No declaration files ship: nothing consumes the plugin's types.
-    const want = `./dist/${base}.js`
-    if (pkg.exports[key] !== want) problems.push(`"exports"["${key}"] must be ${JSON.stringify(want)}.`)
+    if (base) {
+      // No declaration files ship: nothing consumes the plugin's types.
+      const want = `./dist/${base}.js`
+      if (pkg.exports[key] !== want) problems.push(`"exports"["${key}"] must be ${JSON.stringify(want)}.`)
+      continue
+    }
+    const asset = ASSET_EXPORTS[key]
+    if (asset) {
+      if (pkg.exports[key] !== `./${asset}`) problems.push(`"exports"["${key}"] must be ${JSON.stringify(`./${asset}`)}.`)
+      continue
+    }
+    problems.push(`"exports" must not contain "${key}".`)
   }
+  for (const key of Object.keys(ASSET_EXPORTS)) if (!exportsSeen.includes(key)) problems.push(`"exports" is missing "${key}".`)
   for (const field of ["main", "types", "module", "bin"]) if (field in pkg) problems.push(`Remove "${field}": "exports" is the only entry map.`)
   if (pkg.scripts?.build !== "node scripts/check.mjs build") problems.push(`"scripts"."build" must be "node scripts/check.mjs build", which runs the esbuild bundle.`)
   const dist = join(root, "dist")
