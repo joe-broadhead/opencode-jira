@@ -362,6 +362,30 @@ describe("a Code Mode turn that asks for the denied tools", () => {
     expect(host.fake.calls).toContain(READ_B)
     for (const tool of DENY_TOOLS) expect(host.fake.calls).not.toContain(tool)
   })
+
+  // AF-5: a write in Code Mode must ask, as it does on the direct path. The program reports its own start with a read,
+  // so the test can tell "the write was refused" from "the program never ran".
+  test("a program's own call to a change asks, and a declined ask stops it before Atlassian is reached", async () => {
+    const code = [
+      `await tools.jira.${READ_B}({ query: 'started' })`,
+      "await tools.jira.createJiraIssue({ query: 'create it' })",
+      `await tools.jira.${READ_B}({ query: 'after the write' })`,
+    ].join("\n")
+    host.fake.model.script = [{ tool: "execute", arguments: { code } }]
+    const before = host.fake.calls.length
+    const sessionID = (await scripted(host).create({ agent: "build", location: host.location, model: { providerID: "lmstudio", id: MODEL_ID } })).id
+    const prompt = scripted(host).prompt({ sessionID, text: "Create a work item for the flaky login test." })
+    const request = await until("the change asks inside the program", async () =>
+      (await host.client.permission.list({ sessionID })).find((item) => item.action === "jira_createJiraIssue"),
+    )
+    expect(request.action).toBe("jira_createJiraIssue")
+    await host.client.permission.reply({ sessionID, requestID: request.id, decision: "reject" })
+    await prompt
+    // The read before the write ran; the write never reached the fake; and the program did not go on past the refusal.
+    expect(host.fake.calls.slice(before)).toEqual([READ_B])
+    expect(host.fake.called.filter((call) => call.tool === "createJiraIssue")).toEqual([])
+    expect(await host.client.permission.list({ sessionID })).toEqual([])
+  })
 })
 
 describe("the documented opt-in for a denied tool", () => {
