@@ -10,7 +10,8 @@ Unofficial; not affiliated with Atlassian.
 - OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4 and 2.2.5. Outside that range the plugin does not start, unless
   you set `allowUntestedHost`.
 - macOS or Linux, and a browser for the sign-in.
-- A Jira Cloud site. The free plan is enough.
+- A Jira Cloud site. Atlassian does not say which plans include its MCP server: a free site is expected to work,
+  and the first live sign-in on one settles it.
 - An organisation admin who allows **Read** and **Search** for Atlassian MCP in Atlassian Administration, Connectors,
   Atlassian MCP server, Permissions, and **Write** for any change.
 - Your own Jira permissions decide what you can see and change. A site admin can also block access by IP address.
@@ -47,8 +48,8 @@ The plugin pins the access it asks for: Jira read, write and search, plus your a
 not ask for delete, for project or screen administration, or for Confluence, and because the request is pinned,
 Atlassian cannot grant more than that: it then does not load those tools at all.
 
-One sign-in may reach **several sites**. Every call names a site, and the plugin asks which one, once per session, when
-you belong to more than one.
+One sign-in may reach **several sites**. Every call names a site, and the model asks which one, once per session, when
+you belong to more than one, then names it before every change.
 
 When the sign-in expires and cannot be renewed, `/connect` marks the Jira account as needing a new sign-in, and
 OpenCode shows its "MCP server needs authentication" notice.

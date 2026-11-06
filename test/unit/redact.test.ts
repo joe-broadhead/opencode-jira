@@ -94,9 +94,9 @@ describe("redaction", () => {
     expect(shortReason("a\u0085b\u009bc‮evil⁦x⁩")).toBe("a b cevilx")
     expect(viewMessage({ error: new Error(`refused\nBearer abcdefghijklmnop ${"z".repeat(300)}`) })).not.toMatch(/\n.*Bearer|abcdefghijklmnop|z{200}/s)
     // The account name is captured and cleaned before status sees it: one line, controls and bidi marks gone, cut.
-    const name = nameOf({ output: { name: `Example‮evil\u0085 Recruiter\n${"y".repeat(200)}` } })!
+    const name = nameOf({ output: { name: `Sam‮evil\u0085 Okafor\n${"y".repeat(200)}` } })!
     const status = buildStatus({ server: { status: "connected" }, source: plugin, host, account: { name } })
-    expect(status.account).toMatch(/^Exampleevil Recruiter y+…$/)
+    expect(status.account).toMatch(/^Samevil Okafor y+…$/)
     expect(Array.from(status.account!)).toHaveLength(80)
     expect(formatStatus(status)).toContain(`- Account: ${status.account}\n`)
   })

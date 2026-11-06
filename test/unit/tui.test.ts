@@ -91,11 +91,11 @@ describe("TUI plugin", () => {
     expect(key.enabled!()).toBe(false)
     await command(view.layers).run()
     expect(key.enabled!()).toBe(true)
-    view.setAnswer(async () => status({ account: { name: "Example Recruiter" } }))
+    view.setAnswer(async () => status({ account: { name: "Sam Okafor" } }))
     key.run()
     await view.settle()
     expect(view.alerts).toHaveLength(2)
-    expect(view.alerts[1]!.message).toContain("- Account: Example Recruiter")
+    expect(view.alerts[1]!.message).toContain("- Account: Sam Okafor")
     view.alerts[1]!.close()
     await view.settle()
     expect(key.enabled!()).toBe(false)
@@ -104,7 +104,7 @@ describe("TUI plugin", () => {
 
 describe("status view", () => {
   test("shows the server's status, the same text as /jira-status without its heading, in a large dialog", async () => {
-    const answer = status({ server: { status: "needs_auth", error: "Authorization required" }, account: { name: "Example Recruiter" }, agents: [{ id: "reviewer", permissions: [{ action: "*", resource: "*", effect: "allow" }] }] })
+    const answer = status({ server: { status: "needs_auth", error: "Authorization required" }, account: { name: "Sam Okafor" }, agents: [{ id: "reviewer", permissions: [{ action: "*", resource: "*", effect: "allow" }] }] })
     const view = fake({ answer: async () => answer })
     setupView(view.context)
     await command(view.layers).run()
@@ -113,7 +113,7 @@ describe("status view", () => {
     expect(view.alerts[0]!.title).toBe("Jira status")
     expect(view.alerts[0]!.message).toBe(`${formatStatus(answer).split("\n").slice(1).join("\n")}\n\nr refresh · esc close`)
     expect(view.alerts[0]!.message).toContain(`- Next step: ${SIGN_IN}`)
-    expect(view.alerts[0]!.message).toContain("- Account: Example Recruiter")
+    expect(view.alerts[0]!.message).toContain("- Account: Sam Okafor")
     expect(view.alerts[0]!.message).toContain("- Agents without default rules: reviewer\n")
     expect(view.sizes.at(-1)).toEqual({ size: "large" })
   })
@@ -143,11 +143,11 @@ describe("status view", () => {
     const view = fake()
     setupView(view.context)
     await command(view.layers).run()
-    view.setAnswer(async () => status({ account: { name: "Example Recruiter" } }))
+    view.setAnswer(async () => status({ account: { name: "Sam Okafor" } }))
     view.emit(type, { data: { server: "jira" } })
     await view.settle()
     expect(view.alerts).toHaveLength(2)
-    expect(view.alerts[1]!.message).toContain("- Account: Example Recruiter")
+    expect(view.alerts[1]!.message).toContain("- Account: Sam Okafor")
   })
 
   test("listens to events only while the view is open", async () => {
@@ -187,11 +187,11 @@ describe("status view", () => {
     setupView(view.context)
     const first = command(view.layers).run()
     const releaseFirst = release
-    view.setAnswer(async () => status({ account: { name: "Example Recruiter" } }))
+    view.setAnswer(async () => status({ account: { name: "Sam Okafor" } }))
     await command(view.layers).run()
     releaseFirst(status())
     await first
-    expect(view.alerts.map((alert) => alert.message.includes("- Account: Example Recruiter"))).toEqual([true])
+    expect(view.alerts.map((alert) => alert.message.includes("- Account: Sam Okafor"))).toEqual([true])
   })
 
   test("cleanup stops listening and closes an open view", async () => {

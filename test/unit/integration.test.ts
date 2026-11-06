@@ -114,7 +114,7 @@ describe("watchIntegration", () => {
 
   test("marks the account for a new sign-in while the server needs one, and clears only its own mark", async () => {
     const view = fake({ server: "needs_auth" })
-    view.state.connection = { type: "credential", id: "c1", label: "Example Recruiter", method: "oauth" }
+    view.state.connection = { type: "credential", id: "c1", label: "Sam Okafor", method: "oauth" }
     const stop = watchIntegration(view.ctx, () => true)
     await view.settle()
     expect(view.reported).toEqual([{ status: "needs_auth", message: SIGN_IN_AGAIN }])

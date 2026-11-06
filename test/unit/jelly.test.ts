@@ -32,7 +32,7 @@ const ICON_ELEMENTS = new Set(["svg", "g", "path", "circle", "ellipse", "rect", 
 const byPermission = new Map(jelly.tools.map((tool) => [tool.permission, tool]))
 
 describe("the jelly declaration", () => {
-  test("declares every known tool once: reads that run, writes that ask, and the two denied tools off", () => {
+  test("declares every known tool once: reads that run, writes that ask, and the seven denied tools off", () => {
     for (const tool of READ_TOOLS) expect(byPermission.get(`jira_${tool}`)).toMatchObject({ effect: "allow", readOnly: true })
     for (const tool of WRITE_TOOLS) expect(byPermission.get(`jira_${tool}`)).toMatchObject({ effect: "ask", readOnly: false })
     for (const tool of DENY_TOOLS) expect(byPermission.get(`jira_${tool}`)).toMatchObject({ effect: "deny", readOnly: false })

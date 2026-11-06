@@ -53,7 +53,7 @@ chosen one.
 ## Signing in
 
 `jelly.signIns` declares one sign-in, `jira`, for Atlassian's MCP server `jira`, which signs in with OpenCode's MCP OAuth.
-One sign-in may reach several sites; the plugin asks which one once, and Jelly's card signs in or out without changing
+One sign-in may reach several sites; the model asks which one once and names it before a change, and Jelly's card signs in or out without changing
 that.
 
 Jelly folds the declared sign-in into this plugin's one card, which shows it as Connected, Not signed in or Sign in

@@ -331,5 +331,9 @@ listed below", or "default rules not added (see the OpenCode row)".
 The `Sites` row names the sites your account reaches, or says the read has not happened yet. It sits between `Access` and
 `Tools`.
 
+There is no `grantedScope` field, and there cannot be one: the scopes Atlassian actually granted are inside
+OpenCode's credential, which this plugin never reads. `notGranted` states what the plugin's own request leaves out, and
+is empty for an entry of your own, whose scope is its own.
+
 When the status cannot be read, the method answers with its error `unavailable`: the message
 `STATUS_UNAVAILABLE: Could not read Jira's status (…).` and `data: { nextStep }`.
