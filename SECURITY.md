@@ -49,9 +49,10 @@ OpenCode project.
 What the model can do in Jira is limited by these layers, in this order:
 
 1. **Atlassian's server, the grant and your Jira permissions.** The sign-in is your own Atlassian user, and the server
-   returns only what that user can see in Jira. The plugin asks for Jira read, write and search only: no delete, no
-   manage, no Confluence, no Teamwork Graph, and no Rovo search. Atlassian loads only the tools a grant covers, so the
-   delete and project-setting tools cannot run at all, and the three workflow and screen reads never arrive. An
+   returns only what that user can see in Jira. The plugin pins Jira read, write and search, and nothing else: Atlassian's
+   metadata lists about 40 scopes, and without the pin OpenCode would request them all, delete, manage and Confluence
+   included. Pinned, the grant cannot cover a delete, and Atlassian loads only the tools a grant covers, so the delete
+   and project-setting tools cannot run at all, and the three workflow and screen reads never arrive. An
    organisation admin can turn Atlassian MCP off for the whole organisation, refuse this client's origin, or refuse
    this machine by IP.
 2. **Default permission rules.** Every Jira tool asks before it runs, except Jira's read tools listed in

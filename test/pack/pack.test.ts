@@ -396,9 +396,9 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     expect(toolCalls(from)).toEqual([])
   })
 
-  // Last in this block: from here the fake answers every MCP request with Jira's sign-in challenge. The plugin sets no
-  // oauth block, so the scopes come from the challenge alone; offline_access must reach both the registration and the
-  // authorization request, or Jira issues no refresh token.
+  // Last in this block: from here the fake answers every MCP request with Atlassian's sign-in challenge. The challenge
+  // names no scope and the metadata lists about 40, so the plugin's pinned scope is what must reach both the
+  // registration and the authorization request; without it, both would carry every advertised scope.
   test("the sign-in it starts registers a client and asks the pinned scope, which Atlassian's challenge does not name", async () => {
     fake.challenge = true
     const id = integrationID("jira", fake.url)

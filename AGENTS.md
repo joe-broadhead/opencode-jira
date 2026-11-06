@@ -21,11 +21,13 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
   external. `tsc` only typechecks. No declaration files, `.tsx` or JSX.
 - **One endpoint string.** `ENDPOINT` in `src/constants.ts` is the only place Atlassian's URL is written in code; the
   pack test points the built plugin at a fake by replacing its one occurrence in `dist/index.js`.
-- **The pinned scope.** The sign-in entry is `{ type: "remote", url, oauth: { scope: OAUTH_SCOPE } }`: Atlassian's 401
-  names no scope, so without it OpenCode requests none and no refresh token is issued. Never add `client_id` or
-  `redirect_uri`, which would turn the client ID metadata document off. `OAUTH_SCOPE` is Jira only, with no delete and
-  no manage scope: Atlassian then loads no delete or project-setting tool at all. Only the tests' seam sets
-  `oauth: false`.
+- **The pinned scope is the guard.** The sign-in entry is `{ type: "remote", url, oauth: { scope: OAUTH_SCOPE } }`.
+  Atlassian's 401 names no scope and its metadata lists about 40, so without the pin OpenCode would request every one:
+  `delete:jira:agent-interface`, `manage:jira:agent-interface`, Confluence, Jira Service Management and Teamwork Graph
+  included, leaving only the rules between the model and a delete. The pin keeps the grant to Jira read, write and
+  search, and Atlassian then loads no delete or project-setting tool at all. The fake advertises the whole list, so the
+  host and pack tests fail if the pin is removed. Never add `client_id` or `redirect_uri`, which would turn the client ID
+  metadata document off; only the tests' seam sets `oauth: false`.
 - **Adoption compares the query.** `?tools=all` decides which tool list the server sends, so `sameServer` compares
   origin, path and query. A plain `/v2/mcp`, a v1 URL, another origin or a local command is a conflict. Of a user's entry
   the plugin reads only its type, URL and whether `oauth` is `false`, never its `headers`.

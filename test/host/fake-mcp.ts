@@ -37,6 +37,32 @@ export const UPSTREAM_FAILURE = "Jira refused https://api.atlassian.com/a.pdf?si
 import { OAUTH_SCOPE } from "../../src/constants.js"
 export const ATLASSIAN_SCOPES = OAUTH_SCOPE
 
+/**
+ * The scopes Atlassian's protected-resource metadata advertises, copied from RESEARCH §2.3. The 401 names none, so
+ * OpenCode would fall back to this list, all 40 of them: the fake advertises the whole list too, so a test fails if the
+ * plugin's pin is ever removed.
+ */
+export const ATLASSIAN_ALL_SCOPES: readonly string[] = [
+  "read:me", "read:account", "offline_access", "email",
+  "read:jira:agent-interface", "write:jira:agent-interface", "search:jira:agent-interface",
+  "delete:jira:agent-interface", "manage:jira:agent-interface",
+  "read:confluence:agent-interface", "write:confluence:agent-interface", "search:confluence:agent-interface",
+  "search:rovo:agent-interface", "search:code:agent-interface",
+  "read:jsm:agent-interface", "write:jsm:agent-interface",
+  "read:all:twg", "write:all:twg",
+  "read:goals:agent-interface", "write:goals:agent-interface",
+  "read:projects:agent-interface", "write:projects:agent-interface",
+  "read:bitbucket:agent-interface", "write:bitbucket:agent-interface",
+  "read:loom:agent-interface", "write:loom:agent-interface",
+  "read:talent:agent-interface", "write:talent:agent-interface",
+  "read:jira-align:agent-interface", "write:jira-align:agent-interface",
+  "read:teams:agent-interface", "write:teams:agent-interface",
+  "read:artifacts:agent-interface", "write:artifacts:agent-interface",
+  "read:capacity-planning:agent-interface", "write:capacity-planning:agent-interface",
+  "read:focus:agent-interface", "write:focus:agent-interface",
+  "read:assets:agent-interface", "write:assets:agent-interface",
+]
+
 export interface FakeMcpOptions {
   /** `jira` lists every tool the plugin knows, and the new tool. */
   readonly catalog?: "jira"
@@ -161,7 +187,8 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
     const json = (status: number, body: unknown) => void response.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(body))
     const issuer = `${fake.origin}/oidc`
     if (route.startsWith("/.well-known/oauth-protected-resource")) {
-      return json(200, { resource: fake.url, authorization_servers: [issuer], scopes_supported: ATLASSIAN_SCOPES.split(" "), bearer_methods_supported: ["header"] })
+      // Atlassian advertises about 40 scopes here and names none in the 401: without the pin, all of them are requested.
+      return json(200, { resource: fake.url, authorization_servers: [issuer], scopes_supported: [...ATLASSIAN_ALL_SCOPES], bearer_methods_supported: ["header"] })
     }
     if (["/.well-known/oauth-authorization-server/oidc", "/.well-known/openid-configuration/oidc", "/oidc/.well-known/openid-configuration", "/oidc/.well-known/oauth-authorization-server"].includes(route)) {
       return json(200, {
@@ -173,7 +200,7 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
         grant_types_supported: ["implicit", "authorization_code", "refresh_token"],
         code_challenge_methods_supported: ["S256"],
         token_endpoint_auth_methods_supported: ["none", "client_secret_basic", "client_secret_post"],
-        scopes_supported: ATLASSIAN_SCOPES.split(" "),
+        scopes_supported: [...ATLASSIAN_ALL_SCOPES],
       })
     }
     // Like a signed-in browser: the authorization endpoint sends the loopback callback a code, and the token endpoint

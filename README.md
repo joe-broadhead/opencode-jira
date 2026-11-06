@@ -43,9 +43,9 @@ to Atlassian's sign-in page in your browser, sign in, and approve the access. No
 From a terminal, run `opencode mcp auth jira` instead; it opens the link automatically. `/mcps` also offers the same
 sign-in.
 
-The plugin asks for Jira access only: read, write and search, plus your account name and an offline token. It does not
-ask for delete, for project or screen administration, or for Confluence; Atlassian then does not load those tools at
-all.
+The plugin pins the access it asks for: Jira read, write and search, plus your account name and an offline token. It does
+not ask for delete, for project or screen administration, or for Confluence, and because the request is pinned,
+Atlassian cannot grant more than that: it then does not load those tools at all.
 
 One sign-in may reach **several sites**. Every call names a site, and the plugin asks which one, once per session, when
 you belong to more than one.

@@ -21,9 +21,10 @@ interface JiraSeam {
 type RemoteConfig = Extract<Mcp.ServerConfig, { type: "remote" }>
 
 /**
- * The scope is pinned because Atlassian's 401 names none: without it OpenCode requests no scope at all, and no
- * `offline_access` means no refresh token. Nothing else is set: no `client_id` and no `redirect_uri`, which would turn
- * off the client ID metadata document and force dynamic registration. Only the tests' seam sets `oauth: false`.
+ * The scope is pinned because Atlassian's 401 names none and its metadata lists about 40: without it OpenCode would
+ * request all of them, and the grant itself would cover delete, manage and Confluence. Nothing else is set: no
+ * `client_id` and no `redirect_uri`, which would turn off the client ID metadata document and force dynamic
+ * registration. Only the tests' seam sets `oauth: false`.
  */
 export const serverConfig = (seam: JiraSeam): RemoteConfig =>
   seam.oauth === false

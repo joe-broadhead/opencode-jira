@@ -56,9 +56,11 @@ If your config defines no server named `jira`, the plugin registers one:
 
 - **`?tools=all` is part of the address.** Without it, Atlassian sends a small meta-tool set (`discover`, `executeRead`,
   `executeWrite`, `executeDestructive`) instead of one named tool per Jira tool, and this plugin's rules would not match.
-- **The scope is pinned**, because Atlassian's sign-in challenge names none: without it OpenCode would request no scope,
-  and no `offline_access` means no refresh token. It asks for Jira read, write and search only: no delete, no manage, no
-  Confluence. Atlassian then loads no delete or project-setting tool at all.
+- **The scope is pinned**, because Atlassian's sign-in challenge names none while its metadata lists about 40 scopes:
+  without the pin OpenCode would request every one of them, `delete:jira:agent-interface`,
+  `manage:jira:agent-interface`, Confluence, Jira Service Management and Teamwork Graph included. The pinned set keeps
+  the grant to Jira read, write and search, the second copy of the plugin's deny list, so Atlassian loads no delete or
+  project-setting tool at all.
 - **No client ID and no `redirect_uri` are set**, so OpenCode uses its own client ID metadata document. OpenCode
   registers itself with Atlassian's sign-in server on first use, and OpenCode's defaults apply to everything else.
 

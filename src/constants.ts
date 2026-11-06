@@ -14,9 +14,11 @@ export const DISPLAY_NAME = "Jira"
  */
 export const ENDPOINT = "https://mcp.atlassian.com/v2/mcp?tools=all"
 /**
- * The scopes the sign-in asks for. Atlassian's 401 sends no `scope`, so a bare entry would request none, and without
- * `offline_access` no refresh token is issued. Jira only, and no delete or manage scope: Atlassian loads only the tools
- * a grant covers, so the delete tools and the project and screen settings tools never arrive.
+ * The scopes the sign-in asks for: the plugin's second deny list. Atlassian's 401 sends no `scope`, and its
+ * protected-resource metadata lists about 40, `delete:jira:agent-interface`, `manage:jira:agent-interface`, Confluence,
+ * Jira Service Management and Teamwork Graph among them. Without this pin OpenCode would request every one of them, so
+ * the grant itself would cover delete and manage and the permission rules would be the only lock. Pinned, the grant is
+ * Jira read, write and search, and Atlassian loads no delete or project-setting tool at all.
  */
 export const OAUTH_SCOPE = "read:me read:account offline_access read:jira:agent-interface write:jira:agent-interface search:jira:agent-interface"
 /** What Code Mode's catalog says about the `jira` namespace. */

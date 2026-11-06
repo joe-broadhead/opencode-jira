@@ -15,7 +15,7 @@ import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
 import { StatusRpc } from "../../src/status.js"
 import { TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
-import { ACCOUNT_READS, ATLASSIAN_SCOPES, MODEL_ID, READ_A, READ_B } from "./fake-mcp.js"
+import { ACCOUNT_READS, ATLASSIAN_ALL_SCOPES, ATLASSIAN_SCOPES, MODEL_ID, READ_A, READ_B } from "./fake-mcp.js"
 import { agentRules, attempt, cleanup, effect, HOST_VERSION, session, startHost, until, type Host } from "./harness.js"
 
 const AGENT_RULES = defaultRules().map((rule, index, rules) => `  ${JSON.stringify(rule)}${index < rules.length - 1 ? "," : ""}`).join("\n")
@@ -522,7 +522,9 @@ describe("the sign-in OpenCode starts", () => {
   })
   afterAll(() => host?.close())
 
-  test("registers a client dynamically and asks the pinned scope, which the 401 does not name", async () => {
+  // The 401 names no scope and the metadata lists about 40, so the pin is what keeps the grant to Jira read, write and
+  // search: without it these two assertions see the whole list.
+  test("registers a client dynamically and asks exactly the pinned scope, not the 40 the metadata advertises", async () => {
     await jiraTools(host)
     host.fake.challenge = true
     const { data: servers } = await host.client.mcp.list({ location: host.location })
@@ -536,6 +538,11 @@ describe("the sign-in OpenCode starts", () => {
       const url = new URL(attempt.url)
       expect(`${url.origin}${url.pathname}`).toBe(`${host.fake.origin}/oidc/auth`)
       expect(url.searchParams.get("scope")).toBe(OAUTH_SCOPE)
+      expect(url.searchParams.get("scope")).not.toBe(ATLASSIAN_ALL_SCOPES.join(" "))
+      expect(OAUTH_SCOPE.split(" ").filter((scope) => !ATLASSIAN_ALL_SCOPES.includes(scope))).toEqual([])
+      expect(OAUTH_SCOPE).not.toMatch(/delete:|manage:|confluence|twg|jsm|rovo|search:code/)
+      // The fake advertises the whole list, as Atlassian's metadata does, and the plugin's pin is what narrows it.
+      expect(ATLASSIAN_ALL_SCOPES.length).toBeGreaterThan(OAUTH_SCOPE.split(" ").length)
       expect(ATLASSIAN_SCOPES).toBe(OAUTH_SCOPE)
       expect(url.searchParams.get("code_challenge_method")).toBe("S256")
       expect(url.searchParams.get("client_id")).toBe("fake-client-1")
