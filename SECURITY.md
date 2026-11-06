@@ -39,10 +39,11 @@ OpenCode project.
   chat only: that link is a bearer credential for the file.
 - No tool in the Jira set sends data to Atlassian's team, so there is no feedback tool to deny here. That was checked,
   not skipped.
-- Seven tools are denied by default, and six of them are also not granted by the sign-in's scope, so Atlassian never
-  loads them: the three permanent deletes, the three project and screen settings, and the opaque entity-property
-  writer. Turning one on takes an `ask` rule in an agent's own `permissions`, and, for the six, an organisation admin's
-  scope grant too, so each call still asks, in that agent only.
+- Seven tools are denied by default, and six of them are also not granted by the plugin's pinned request, so Atlassian
+  never loads them: the three permanent deletes, the three project and screen settings, and the opaque entity-property
+  writer. No admin can add that scope to this client: a new release of the plugin would have to request it, an admin
+  would have to enable the permission group, and a rule in an agent's own `permissions` would still keep it asking. An
+  `ask` rule alone turns back only `jira_editJiraEntityProperty`, which the grant covers.
 
 ## Permissions
 
@@ -52,7 +53,10 @@ What the model can do in Jira is limited by these layers, in this order:
    returns only what that user can see in Jira. The plugin pins Jira read, write and search, and nothing else: Atlassian's
    metadata lists about 40 scopes, and without the pin OpenCode would request them all, delete, manage and Confluence
    included. Pinned, the grant cannot cover a delete, and Atlassian loads only the tools a grant covers, so the delete
-   and project-setting tools cannot run at all, and the three workflow and screen reads never arrive. An
+   and project-setting tools cannot run at all, and the three workflow and screen reads never arrive. **This holds only
+   while the request does.** If you define `mcp.servers.jira` yourself, repeat the same `oauth.scope`: an entry with no
+   scope, or a wider one, replaces the pin and the grant can then cover delete, manage or Confluence, leaving the
+   permission rules as the only lock. `/jira-status` names which your entry does. An
    organisation admin can turn Atlassian MCP off for the whole organisation, refuse this client's origin, or refuse
    this machine by IP.
 2. **Default permission rules.** Every Jira tool asks before it runs, except Jira's read tools listed in

@@ -129,15 +129,17 @@ The seven, and why:
 - `{ "action": "jira_editJiraEntityProperty", "resource": "*", "effect": "deny" }`: writes opaque state that other Jira
   apps read, and can target a user.
 
-Six of the seven are also **not granted by the sign-in's scope**, so Atlassian never loads them. Turning one on takes
-two independent changes: an organisation admin grants the scope, and the user adds a rule that makes it **ask** to an
-agent's own `permissions`, which come after the plugin's block. For the build agent:
+Six of the seven are also **not granted by the sign-in's scope**, which this plugin pins, so Atlassian never loads them
+and no admin action can change that: a new release of this plugin would have to request the scope, an admin would have
+to enable the permission group, and even then a rule in an agent's own `permissions` keeps it asking. The exception is
+`jira_editJiraEntityProperty`, which the grant covers: a rule like this, in the build agent's own `permissions`, turns
+it into a per-call ask.
 
 ```json
 {
   "agents": {
     "build": {
-      "permissions": [{ "action": "jira_deleteJiraIssue", "resource": "*", "effect": "ask" }]
+      "permissions": [{ "action": "jira_editJiraEntityProperty", "resource": "*", "effect": "ask" }]
     }
   }
 }
@@ -193,9 +195,10 @@ plugin entry in the system config: `/Library/Application Support/opencode/openco
 }
 ```
 
-To let users delete an item from OpenCode, with a prompt on every call, an admin must first grant the delete scope, and
-the user adds the `ask` rule to the agent's own `permissions` in the same config, as [Permissions](#permissions) shows
-for `agents.build`. Not to the top-level `permissions`, which reach every agent, Explore included.
+The delete and project-setting tools cannot run through this plugin: it pins a request without the delete or manage
+scope, so Atlassian never loads them, and only a new release of the plugin can change that. An admin's permission group
+and the user's `ask` rule are the two locks after it, as [Permissions](#permissions) shows for `agents.build`; neither
+can lift the first.
 
 Members then only sign in: run `/connect` and choose Jira, then press `o` or Enter to open the link. Atlassian's own
 controls stay in Atlassian Administration: the **Connectors** permissions, the domain allowlist (which permits
@@ -224,7 +227,7 @@ Run `/jira-status` first. Its last line is the next step.
 | Tools: unknown | Atlassian added tools the plugin does not know yet. They ask before they run. A known tool missing from the count is normal: Atlassian lists only the tools a grant covers. |
 | Access: default rules missing or not added | Some agents lack the default rules (see the agents row), or OpenCode could not add them (see the OpenCode row). Follow the next step. |
 | Account or Sites: not read yet | Nothing is wrong: the plugin learns both from your own calls. Make one Jira request in the session, then run `/jira-status` again. |
-| A change is refused with no permission | This plugin never asked for the delete or manage scope, and Atlassian does not load those tools. An admin must grant the scope **and** enable the permission group. |
+| A change is refused with no permission | This plugin's pinned request has no delete or manage scope, so Atlassian never loads those tools and no admin can add the scope to it. A new release must request it, an admin must enable the permission group, and a rule keeps it asking. |
 | Sign-in succeeded but calls fail | The site is wrong, or the token was consented for another site. Run `opencode mcp logout jira`, sign in again, and name the site. |
 | Rate limited | Atlassian publishes `Retry-After` and `X-RateLimit-*`. Wait the seconds it names, and make fewer calls at once. |
 | The site's email stopped | A free site sends at most 100 notification emails a day, automation included, and an agent can spend them. |

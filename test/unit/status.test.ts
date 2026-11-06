@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { OAUTH_SCOPE } from "../../src/constants.js"
 import { checkHost } from "../../src/host-version.js"
 import { defaultRules } from "../../src/permissions.js"
 import { buildStatus, formatStatus, readStatus, registerStatusCommand, registerStatusRpc, shortReason, StatusRpc, type Status, type StatusContext, type StatusFacts } from "../../src/status.js"
@@ -23,7 +24,7 @@ const base: StatusFacts = {
 }
 const guarded = { id: "build", permissions: [allow("*"), ...defaultRules()] }
 const RULES = "no agent runs new Jira tools unasked"
-const POSTURE = `reads run without asking; the ${WRITE_TOOLS.length} changes ask first; ${DENY_TOOLS.length} tools are off, and the deletes and the project and screen settings are not granted either`
+const POSTURE = `reads run without asking; the ${WRITE_TOOLS.length} changes ask first; ${DENY_TOOLS.length} tools are off, and ${NOT_GRANTED_TOOLS.slice(0, -1).join(", ")} and ${NOT_GRANTED_TOOLS.at(-1)} are not granted either`
 const ACCESS = `${POSTURE}; ${RULES}`
 const NOT_GRANTED = `not granted by scope: ${NOT_GRANTED_TOOLS.slice(0, -1).join(", ")} and ${NOT_GRANTED_TOOLS.at(-1)}`
 
@@ -105,9 +106,11 @@ describe("buildStatus", () => {
   })
 
   test("adopted and conflicting servers", () => {
-    expect(formatStatus(buildStatus({ ...base, source: { type: "adopted", url: URL, signIn: "oauth" } }))).toContain(`- Connection: connected (${URL}, your own mcp.servers.jira, used unchanged)`)
-    // Your own entry has a scope of its own, so the plugin does not claim its scope withheld a tool.
-    expect(buildStatus({ ...base, source: { type: "adopted", url: URL, signIn: "oauth" } }).notGranted).toEqual([])
+    const pinned = { type: "adopted", url: URL, signIn: "oauth", scope: "pinned" } as const
+    expect(formatStatus(buildStatus({ ...base, source: pinned }))).toContain(`- Connection: connected (${URL}, your own mcp.servers.jira, used unchanged)`)
+    // An entry that repeats the pin keeps the second deny list, so the not-granted reads still hold.
+    expect(buildStatus({ ...base, source: pinned }).notGranted).toEqual([...NOT_GRANTED_TOOLS])
+    expect(formatStatus(buildStatus({ ...base, source: pinned }))).toContain("are not granted either")
     const conflict = buildStatus({ ...base, source: { type: "conflict", url: "https://atlassian-mcp.example.com/mcp", expected: URL } })
     expect(conflict.state).toBe("conflict")
     expect(conflict.nextStep).toBe(
@@ -117,12 +120,33 @@ describe("buildStatus", () => {
   })
 
   test("the user's own entry without OAuth is named as such, and its failure names the API token in its headers", () => {
-    const own = { type: "adopted", url: URL, signIn: "own" } as const
+    const own = { type: "adopted", url: URL, signIn: "own", scope: "token" } as const
     expect(formatStatus(buildStatus({ ...base, source: own }))).toContain(`- Connection: connected (${URL}, your own mcp.servers.jira without OAuth, used unchanged)`)
     expect(buildStatus({ ...base, source: own, server: { status: "failed", error: "HTTP 401" } }).nextStep).toBe(
       "Check the API token in the headers of your mcp.servers.jira (Atlassian: id.atlassian.com, Security, API tokens), then restart OpenCode.",
     )
     expect(buildStatus({ ...base, source: own }).notGranted).toEqual([])
+    // The API token's own scopes decide the grant, so the row says that rather than naming the pin's withheld reads.
+    expect(formatStatus(buildStatus({ ...base, source: own }))).toContain("signs in with an API token, whose scopes and not this plugin's request set the grant")
+  })
+
+  test("an adopted entry whose scope is missing or wider is told so, with the exact pin to paste, and never that it withholds", () => {
+    const missing = buildStatus({ ...base, source: { type: "adopted", url: URL, signIn: "oauth", scope: "missing" } })
+    const wider = buildStatus({ ...base, source: { type: "adopted", url: URL, signIn: "oauth", scope: "wider" } })
+    const narrower = buildStatus({ ...base, source: { type: "adopted", url: URL, signIn: "oauth", scope: "narrower" } })
+    for (const status of [missing, wider, narrower]) {
+      // The grant is the entry's own request, so the plugin must not claim its scope withheld a tool.
+      expect(status.notGranted).toEqual([])
+      expect(formatStatus(status)).not.toContain("not granted")
+      expect(formatStatus(status)).not.toContain(NOT_GRANTED_TOOLS[0]!)
+      expect(formatStatus(status)).toContain(`"oauth": { "scope": "${OAUTH_SCOPE}" }`)
+    }
+    expect(formatStatus(missing)).toContain("asks for no OAuth scope, so OpenCode requests every scope Atlassian advertises")
+    expect(formatStatus(wider)).toContain("asks for more than this plugin's six scopes, so the grant may cover delete, manage or Confluence")
+    expect(formatStatus(narrower)).toContain("asks for less than this plugin's scopes, so some reads may be missing")
+    expect(missing.nextStep).toBe(NOTHING_TO_DO)
+    // The Tools row does not name a withheld read either.
+    expect(formatStatus(missing)).not.toContain("not granted by scope")
   })
 
   test("connected with no tools points at the organisation's Atlassian MCP permissions", () => {
@@ -159,7 +183,7 @@ describe("buildStatus", () => {
   test("the Access row says whether the default rules are in place, from what status can see", () => {
     expect(formatStatus(buildStatus(base))).toContain(`- Access: ${ACCESS}\n`)
     // The posture is the tool lists': 14 changes ask, 7 tools are off.
-    expect(ACCESS).toContain("the 14 changes ask first; 7 tools are off, and the deletes and the project and screen settings are not granted either")
+    expect(ACCESS).toContain("the 14 changes ask first; 7 tools are off, and getJiraScreen, getJiraWorkflowEditorLink and getJiraWorkflows are not granted either")
     const missing = buildStatus({ ...base, agents: [{ id: "reviewer", permissions: [allow("*")] }] })
     expect(formatStatus(missing)).toContain(`- Access: ${POSTURE}; default rules missing in the agents listed below\n`)
     const problem = "RULES_NOT_ADDED: Jira's default permission rules could not be added (boom), so Jira tools may run without asking. Next step: Restart OpenCode."

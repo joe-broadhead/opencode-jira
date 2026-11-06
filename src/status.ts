@@ -1,6 +1,7 @@
 import type { Plugin, Rpc } from "@opencode/plugin"
-import { PLUGIN_ID, SERVER_NAME, TESTED_HOSTS } from "./constants.js"
+import { OAUTH_SCOPE, PLUGIN_ID, SERVER_NAME, TESTED_HOSTS } from "./constants.js"
 import { isSupportedHost, type HostCheck } from "./host-version.js"
+import type { AdoptedScope } from "./plugin.js"
 import { classify, DENY_TOOLS, NOT_GRANTED_TOOLS, WRITE_TOOLS } from "./jira-tools.js"
 import type { Account } from "./account.js"
 import { defaultRules, unguardedAgents, type Rule } from "./permissions.js"
@@ -18,7 +19,7 @@ type State = "connected" | "sign_in_required" | "connecting" | "disabled" | "fai
  */
 export type ServerSource =
   | { readonly type: "plugin"; readonly url: string; readonly signIn: "oauth" }
-  | { readonly type: "adopted"; readonly url: string; readonly signIn: "oauth" | "own" }
+  | { readonly type: "adopted"; readonly url: string; readonly signIn: "oauth" | "own"; readonly scope: AdoptedScope }
   | { readonly type: "conflict"; readonly url: string; readonly expected: string }
 
 interface SkillPath {
@@ -124,8 +125,10 @@ export function buildStatus(facts: StatusFacts): Status {
   // OpenCode's text for a needed sign-in can hold an authorization URL, so only a failure's reason is kept.
   const error = facts.server?.status === "failed" && facts.server.error ? shortReason(facts.server.error) : undefined
   const shadowed = shadowedOf(facts)
-  // The plugin's scope is the second deny list; your own entry has a scope of its own, so this fact is the plugin's.
-  const notGranted = facts.source?.type === "adopted" ? [] : [...NOT_GRANTED_TOOLS]
+  // The plugin's scope is the second deny list. An adopted entry that repeats the pin keeps it, so only there does the
+  // list still hold; one with no scope, or a wider one, must not be told it withholds anything.
+  const withholds = facts.source?.type === "adopted" ? facts.source.scope === "pinned" : true
+  const notGranted = withholds ? [...NOT_GRANTED_TOOLS] : []
   const status = {
     version: VERSION,
     state,
@@ -227,15 +230,41 @@ function sitesText(sites: readonly string[]) {
  * The permission posture the default rules fix, derived from the tool lists so it cannot go stale, and whether those
  * rules are in place: facts status can check, not a fixed claim.
  */
-const POSTURE = `reads run without asking; the ${WRITE_TOOLS.length} changes ask first; ${DENY_TOOLS.length} tools are off, and the deletes and the project and screen settings are not granted either`
+const POSTURE = `reads run without asking; the ${WRITE_TOOLS.length} changes ask first; ${DENY_TOOLS.length} tools are off`
 
-function accessText({ problems, unguardedAgents }: Status) {
+const PIN_FIX = `"oauth": { "scope": "${OAUTH_SCOPE}" }`
+
+/**
+ * The scope half of the Access row. For the plugin's own request, and for an adopted entry that repeats the pin, it names
+ * the reads the request leaves out, from `status.notGranted`. An adopted entry with no scope, a wider one or a narrower
+ * one says so plainly with the one-line fix, and never claims to withhold anything: only the entry's own request decides.
+ */
+function scopeText(status: Status): string {
+  const left = status.notGranted.length ? `, and ${list(status.notGranted)} ${status.notGranted.length === 1 ? "is" : "are"} not granted either` : ""
+  const { source } = status
+  if (source?.type !== "adopted") return left
+  switch (source.scope) {
+    case "pinned":
+      return left
+    case "token":
+      return "; your own mcp.servers.jira signs in with an API token, whose scopes and not this plugin's request set the grant"
+    case "missing":
+      return `; your own mcp.servers.jira asks for no OAuth scope, so OpenCode requests every scope Atlassian advertises: add ${PIN_FIX} to it and sign in again`
+    case "wider":
+      return `; your own mcp.servers.jira asks for more than this plugin's six scopes, so the grant may cover delete, manage or Confluence: use exactly ${PIN_FIX} and sign in again`
+    case "narrower":
+      return `; your own mcp.servers.jira asks for less than this plugin's scopes, so some reads may be missing: use exactly ${PIN_FIX} and sign in again`
+  }
+}
+
+function accessText(status: Status) {
+  const { problems, unguardedAgents } = status
   const rules = problems.some((problem) => problem.startsWith(RULES_NOT_ADDED))
     ? "default rules not added (see the OpenCode row)"
     : unguardedAgents.length
       ? "default rules missing in the agents listed below"
       : "no agent runs new Jira tools unasked"
-  return `${POSTURE}; ${rules}`
+  return `${POSTURE}${scopeText(status)}; ${rules}`
 }
 
 /** The OpenCode row: the version, whether it is tested, the supported range, then any setup problems. */
@@ -351,7 +380,13 @@ export const StatusRpc = {
           source: {
             type: "object",
             required: ["type", "url"],
-            properties: { type: { enum: ["plugin", "adopted", "conflict"] }, url: { type: "string" }, expected: { type: "string" }, signIn: { enum: ["oauth", "own"] } },
+            properties: {
+              type: { enum: ["plugin", "adopted", "conflict"] },
+              url: { type: "string" },
+              expected: { type: "string" },
+              signIn: { enum: ["oauth", "own"] },
+              scope: { enum: ["pinned", "missing", "wider", "narrower", "token"] },
+            },
           },
           account: { type: "string" },
           sites: strings,

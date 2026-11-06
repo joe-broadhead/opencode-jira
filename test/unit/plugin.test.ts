@@ -5,7 +5,7 @@ import { join } from "node:path"
 import type { Plugin } from "@opencode/plugin"
 import { ENDPOINT, NAMESPACE_DESCRIPTION, OAUTH_SCOPE } from "../../src/constants.js"
 import jira from "../../src/index.js"
-import { createJiraPlugin, displayUrl, registerServer, serverConfig } from "../../src/plugin.js"
+import { createJiraPlugin, displayUrl, registerServer, scopeOf, serverConfig } from "../../src/plugin.js"
 import { SKILL_NAMES } from "../../src/skills.js"
 import type { ServerSource } from "../../src/status.js"
 import { agentEditor, builtInAgents, mcpEditor, transforms, type McpEditor } from "./fake.js"
@@ -51,13 +51,30 @@ describe("the jira server", () => {
     const own = { type: "remote" as const, url: "https://mcp.atlassian.com/v2/mcp/?tools=all", oauth: { client_id: "pre-registered", callback_port: 19876 }, timeout: { execution: 60_000 } }
     const { servers, records } = await register({ jira: own })
     expect(servers.get("jira")).toEqual(own)
-    expect(records).toEqual([[{ type: "adopted", url: ENDPOINT, signIn: "oauth" }, undefined]])
+    // Its oauth block names no scope, so OpenCode would request every scope Atlassian advertises: status says so.
+    expect(records).toEqual([[{ type: "adopted", url: ENDPOINT, signIn: "oauth", scope: "missing" }, undefined]])
     const keyed = { type: "remote" as const, url: ENDPOINT, oauth: false as const, headers: { Authorization: `Bearer ${KEY}` } }
     const withKey = await register({ jira: keyed })
     expect(withKey.servers.get("jira")).toEqual(keyed)
-    expect(withKey.records).toEqual([[{ type: "adopted", url: ENDPOINT, signIn: "own" }, undefined]])
+    expect(withKey.records).toEqual([[{ type: "adopted", url: ENDPOINT, signIn: "own", scope: "token" }, undefined]])
     // The plugin never copies the entry's headers anywhere it reports.
     expect(JSON.stringify(withKey.records)).not.toContain(KEY)
+  })
+
+  test("classifies an adopted entry's own scope against the pin, reading nothing else of it", async () => {
+    const adopted = async (oauth: unknown) => (await register({ jira: { type: "remote", url: ENDPOINT, oauth } as never })).records[0]![0]
+    const scope = (source: ServerSource | undefined) => (source as Extract<ServerSource, { type: "adopted" }>).scope
+    expect(scope(await adopted({ scope: OAUTH_SCOPE }))).toBe("pinned")
+    // A repeated or reordered pin is still the pin.
+    expect(scope(await adopted({ scope: `${OAUTH_SCOPE} ${OAUTH_SCOPE}`, callback_port: 19876 }))).toBe("pinned")
+    expect(scope(await adopted({ scope: OAUTH_SCOPE.split(" ").reverse().join(" ") }))).toBe("pinned")
+    expect(scope(await adopted({ scope: "" }))).toBe("missing")
+    expect(scope(await adopted({}))).toBe("missing")
+    expect(scope(await adopted(undefined))).toBe("missing")
+    expect(scope(await adopted({ scope: `${OAUTH_SCOPE} delete:jira:agent-interface` }))).toBe("wider")
+    expect(scope(await adopted({ scope: "read:jira:agent-interface offline_access" }))).toBe("narrower")
+    expect(scope(await adopted(false))).toBe("token")
+    expect(scopeOf(undefined)).toBe("missing")
   })
 
   test("reports the meta-tool URL, a v1 URL, another origin or a local command as a conflict and adds nothing", async () => {

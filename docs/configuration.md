@@ -66,8 +66,19 @@ If your config defines no server named `jira`, the plugin registers one:
 
 To change anything else, define `mcp.servers.jira` yourself at Atlassian's URL with the same query. The plugin then
 **adopts** your entry unchanged, and `/jira-status` shows "Connection: connected (…, your own mcp.servers.jira, used
-unchanged)". The permission rules and skills still apply. Of your entry the plugin reads only its type, its URL and
-whether `oauth` is `false`; it never reads, copies or reports its `headers`.
+unchanged)". The permission rules and skills still apply. Of your entry the plugin reads its type, its URL, whether
+`oauth` is `false` and its `oauth.scope`; it never reads, copies or reports its `headers`.
+
+**Repeat the scope in your own entry.** An entry with no `oauth.scope`, or with one wider than the pin, replaces the
+plugin's request: OpenCode then asks Atlassian for no scope, or for more, and its fallback is every scope the metadata
+advertises, the 40 above included. Paste the same six, so the grant stays Jira read, write and search:
+
+```json
+"oauth": { "scope": "read:me read:account offline_access read:jira:agent-interface write:jira:agent-interface search:jira:agent-interface" }
+```
+
+`/jira-status` says when an entry asks for too much or names no scope, and repeats that line. It never changes your
+config.
 
 ### If the browser comes back to a blank page
 
@@ -173,9 +184,10 @@ that agent. Each call then asks. For the build agent:
 }
 ```
 
-Six of the seven are also not granted by the sign-in's scope, so this rule alone is not enough: an organisation admin
-must grant the scope **and** enable the permission group. `jira_editJiraEntityProperty` sits in the write group, so the
-rule is the only lock for it.
+Six of the seven are also not granted by the plugin's pinned request, so this rule alone is not enough, and no admin
+action can supply the missing scope: a new release of the plugin must request it, an organisation admin must enable the
+permission group, and even then the rule keeps it asking. `jira_editJiraEntityProperty` sits in the write group, so it
+is granted, and this block's ask for it works today; for the other six, the rule is inert until such a release.
 
 Don't put these in the top-level `permissions`: a top-level rule comes after every agent's own rules, so it would reach
 every agent, Explore included, which otherwise can't use Jira. For an agent that exists only in your config, put them
@@ -184,8 +196,9 @@ after the plugin's block (see [Agents that miss the rules](#agents-that-miss-the
 Use only the rules you need. Never make a denied tool `allow`, and don't answer "Always allow" when it asks: OpenCode
 would save an allow for every agent in the project. Two tools also do several operations behind one name:
 `jira_manageJiraSprint` and `jira_manageJiraProjectVersion`, which include closing a sprint and releasing a version. A
-rule cannot see which operation a call makes, so the skill names it before the call; to bound them harder, deny them in
-the top level and let the user lift that per agent.
+rule cannot see which operation a call makes, so the skill names it before the call. To bound them harder, deny them in
+the top level, for everyone: a top-level rule comes last, so no agent can lift it, and the per-agent exception has to be
+a narrower top-level deny or left out.
 
 OpenCode uses the last rule that matches, so everything after the plugin's rules wins:
 
@@ -324,16 +337,20 @@ token, no header and no URL query, and makes no Atlassian call. `version`, `host
 | `nextStep` | Exactly one next step: the `Next step` row, `Nothing to do.` when nothing is needed |
 
 The `Access` row states the posture the default rules fix, from the tool lists: "reads run without asking; the 14
-changes ask first; 7 tools are off, and the deletes and the project and screen settings are not granted either". Then it
-says whether those rules are in place: "no agent runs new Jira tools unasked", "default rules missing in the agents
-listed below", or "default rules not added (see the OpenCode row)".
+changes ask first; 7 tools are off", then what the request leaves out, from `notGranted`: "and getJiraScreen,
+getJiraWorkflowEditorLink and getJiraWorkflows are not granted either". An adopted entry of your own instead says what
+its own `oauth.scope` asks for: that it asks for no scope, more than the pin, or less, each with the `"oauth": {
+"scope": … }` line to paste. Then the row says whether the default rules are in place: "no agent runs new Jira tools
+unasked", "default rules missing in the agents listed below", or "default rules not added (see the OpenCode row)".
 
 The `Sites` row names the sites your account reaches, or says the read has not happened yet. It sits between `Access` and
 `Tools`.
 
 There is no `grantedScope` field, and there cannot be one: the scopes Atlassian actually granted are inside
-OpenCode's credential, which this plugin never reads. `notGranted` states what the plugin's own request leaves out, and
-is empty for an entry of your own, whose scope is its own.
+OpenCode's credential, which this plugin never reads. `notGranted` states what the plugin's own request leaves out. It
+holds the three reads for the plugin's own server and for an adopted entry that repeats the pin, and is empty for an
+entry with no scope, a wider one, a narrower one or an API token, where the entry's own request decides. `source.scope`
+says which of those an adopted entry is.
 
 When the status cannot be read, the method answers with its error `unavailable`: the message
 `STATUS_UNAVAILABLE: Could not read Jira's status (…).` and `data: { nextStep }`.

@@ -84,6 +84,28 @@ export function conflictUrl(url: string, expected: string) {
 }
 
 /**
+ * What an adopted entry's own `oauth` block asks for, against the plugin's pin. A missing or wider scope is the one way
+ * the second deny list can be lost without a code change, so status reports it rather than assuming the pin.
+ * - `pinned`: the six scopes, in any order.
+ * - `missing`: no `oauth` block, or one with no `scope`, so OpenCode falls back to every scope Atlassian advertises.
+ * - `wider`: the pin plus any other scope, so the grant may cover delete, manage or Confluence.
+ * - `narrower`: fewer than the six, so some reads may be missing.
+ * - `token`: `oauth: false`, where the API token's own scopes decide the grant.
+ */
+export type AdoptedScope = "pinned" | "missing" | "wider" | "narrower" | "token"
+
+/** Classifies a user entry's `oauth` value against the pin. Reads nothing else of the entry. */
+export function scopeOf(oauth: unknown): AdoptedScope {
+  if (oauth === false) return "token"
+  const scope = typeof oauth === "object" && oauth !== null ? (oauth as { scope?: unknown }).scope : undefined
+  if (typeof scope !== "string" || scope.trim() === "") return "missing"
+  const requested = scope.trim().split(/\s+/)
+  const pinned = OAUTH_SCOPE.split(" ")
+  if (requested.some((item) => !pinned.includes(item))) return "wider"
+  return pinned.some((item) => !requested.includes(item)) ? "narrower" : "pinned"
+}
+
+/**
  * Registers `jira`, or adopts the user's own `mcp.servers.jira` unchanged when it points at Atlassian's URL with the
  * `?tools=all` query: user config is applied first, and a later `set` would replace it. Of the user's entry only its
  * type, its URL and whether `oauth` is false are read, never its headers, which may hold a secret. Any other URL, a
@@ -105,7 +127,7 @@ export function registerServer(
       if (existing.type !== "remote") return record({ type: "conflict", url: "a local command", expected })
       const url = displayUrl(existing.url)
       const signIn = existing.oauth === false ? "own" : "oauth"
-      record(sameServer(existing.url, config.url) ? { type: "adopted", url, signIn } : { type: "conflict", url: conflictUrl(existing.url, config.url), expected })
+      record(sameServer(existing.url, config.url) ? { type: "adopted", url, signIn, scope: scopeOf(existing.oauth) } : { type: "conflict", url: conflictUrl(existing.url, config.url), expected })
     } catch (error) {
       record(undefined, errorText("SERVER_NOT_REGISTERED", `The ${SERVER_NAME} MCP server could not be registered (${reasonOf(error)}).`, "Restart OpenCode."))
     }
