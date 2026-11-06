@@ -250,7 +250,8 @@ A script's errors from the tools RPC have their own codes, listed in
 - **The tool table comes from Atlassian's docs.** Atlassian publishes no annotations, and this release has not been
   reconciled with a live tool list, so a tool Atlassian marks as changing data could run here as a read until a release
   does. `test/unit/jira-tools.json` records the list, and `npm run drift -- <tools.json> --strict` is the check that
-  reconciles it.
+  reconciles it. A common tool that arrives in the flat list but is not in that table, such as the rich-content format
+  guide, asks before it runs and is counted as unknown.
 - **A script's read can cross projects.** A script's session may belong to another directory than the OpenCode server
   answering it, and the read then runs under the serving location's agent rules; only a `deny` is refused in between.
   Run scripts in the project whose agent you mean. This is in the module shared with the other plugins, not in this
