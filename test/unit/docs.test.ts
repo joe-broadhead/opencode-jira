@@ -79,6 +79,15 @@ describe("docs", () => {
     })
   })
 
+  test("no doc or skill ever shows an allow rule for a change: only an ask, and an interactive session", () => {
+    const allow = (name: string) => `{ "action": "jira_${name}", "resource": "*", "effect": "allow" }`
+    for (const file of FILES) for (const name of WRITE_TOOLS) expect({ file, name, shown: text(file).includes(allow(name)) }).toEqual({ file, name, shown: false })
+    // The one place a write is discussed as runnable says how.
+    expect(text("docs/configuration.md")).toContain("run changes interactively instead")
+    expect(text("README.md")).toContain("A change needs an interactive session")
+    for (const file of FILES) expect(text(file)).not.toMatch(/run (?:a|one|any) (?:change|write)[^.]*without a prompt/i)
+  })
+
   test("the strict-agent recipe repeats every deny after its jira_* ask, so no denied tool reopens", () => {
     const recipe = text("docs/configuration.md").split("A strict agent where every Jira tool asks")[1]?.split("```")[1] ?? ""
     const ask = recipe.indexOf('{ "action": "jira_*", "resource": "*", "effect": "ask" }')

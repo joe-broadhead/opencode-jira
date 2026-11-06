@@ -216,18 +216,11 @@ Keep closing sprints and releasing versions out of every agent, including ones a
 ]
 ```
 
-Run one change without a prompt in the build agent (answering "Always allow" once does the same, for every agent in the
-project):
-
-```json
-{
-  "agents": {
-    "build": {
-      "permissions": [{ "action": "jira_addOrEditJiraIssueComment", "resource": "*", "effect": "allow" }]
-    }
-  }
-}
-```
+A change always asks, and this guide documents no `allow` for one. A write emails the watchers, the assignee, the
+reporter and anyone it mentions, so the prompt is the last thing between the model and those people. A saved "Always
+allow" would remove it for every agent in the project, and the person answering a prompt sees only the tool's input,
+not the sentence on whom it reaches. In an unattended run such as `opencode run`, nobody can answer, so a change is
+refused: run changes interactively instead.
 
 A strict agent where every Jira tool asks, reads included: put these in that agent's own `permissions`, after the
 block. The last match wins, so the `jira_*` ask alone would turn the seven denied tools into asks too; repeating their
