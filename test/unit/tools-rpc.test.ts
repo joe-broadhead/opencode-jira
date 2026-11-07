@@ -1,6 +1,8 @@
 // Unit tests for the shared tools RPC module v2, against narrow fakes of the public plugin context.
 // A copy in a plugin repository changes only the two imports: its test runner, and the path of its copy.
 import { describe, expect, test } from "bun:test"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import {
   CLASSES,
   hidden,
@@ -36,7 +38,8 @@ type Result = { output?: unknown; content?: string | { type: "text"; text: strin
 type Execute = (input: unknown, call: ToolCall) => Promise<Result>
 
 const SERVER = "srv"
-const LOCATION = "/projects/tools-rpc-v2-test" // not a temp path: the forbidden scan refuses machine-local paths
+/** Path-neutral: a fake location under the runner's temp dir, never a literal /tmp path a repo's scan rejects. */
+const LOCATION = join(tmpdir(), "tools-rpc-test-location")
 const READ = "probe_read"
 const WRITE = "probe_write"
 const SLOW = "probe_slow"
@@ -92,6 +95,8 @@ interface Harness {
   calls: { tool: string; input: unknown; call: ToolCall }[]
   evaluations: Evaluation[]
   disposed: string[]
+  /** How many times describe asked OpenCode for the MCP server list. */
+  mcpListCalls: number
   stop: () => Promise<void>
 }
 
@@ -104,6 +109,7 @@ async function setup(options: Setup = {}): Promise<Harness> {
   const calls: Harness["calls"] = []
   const evaluations: Evaluation[] = []
   const disposed: string[] = []
+  const counter = { mcpListCalls: 0 }
   let contract: Harness["contract"] | undefined
   let handlers: Record<string, Handler> = {}
   let hook: Harness["hook"] = () => {}
@@ -170,7 +176,12 @@ async function setup(options: Setup = {}): Promise<Harness> {
           },
         })),
     },
-    mcp: { list: async () => ({ data: [{ name: SERVER, status: { status: options.status ?? "connected" } }] }) },
+    mcp: {
+      list: async () => {
+        counter.mcpListCalls++
+        return { data: [{ name: SERVER, status: { status: options.status ?? "connected" } }] }
+      },
+    },
   }
   // Read by destructuring: this repository's forbidden scan refuses that delegation form in a test.
   const { mcp: withoutServer } = options
@@ -188,7 +199,19 @@ async function setup(options: Setup = {}): Promise<Harness> {
           },
         }),
   })
-  return { contract: contract!, handlers, hook: (evaluation) => hook(evaluation), check, calls, evaluations, disposed, stop }
+  return {
+    contract: contract!,
+    handlers,
+    hook: (evaluation) => hook(evaluation),
+    check,
+    calls,
+    evaluations,
+    disposed,
+    get mcpListCalls() {
+      return counter.mcpListCalls
+    },
+    stop,
+  }
 }
 
 function rpcContext(signal = new AbortController().signal): RpcContext {
@@ -338,6 +361,19 @@ describe("describe", () => {
     // Without a session there is no permission field.
     const plain = await h.handlers.describe!({}, rpcContext())
     expect(plain.methods.every((method: object) => !Object.hasOwn(method, "permission"))).toBe(true)
+  })
+
+  test("lists the MCP servers once per describe, however many MCP methods there are", async () => {
+    const h = await setup()
+    const before = h.mcpListCalls
+    await h.handlers.describe!({}, rpcContext())
+    expect(h.mcpListCalls - before).toBe(1)
+    await h.handlers.describe!({ sessionID: "ses_1" }, rpcContext())
+    expect(h.mcpListCalls - before).toBe(2)
+    // A table with no MCP method never asks for the server list.
+    const owned = await setup({ methods: [ownedMethod(async () => ({}))], mcp: false })
+    await owned.handlers.describe!({}, rpcContext())
+    expect(owned.mcpListCalls).toBe(0)
   })
 
   test("with an unknown session, refuses with SESSION_UNKNOWN", async () => {

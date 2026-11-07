@@ -5,6 +5,8 @@
 // Why the matrix: Jobs grants a script by writing run-session `allow` rules, and a session allow overrides an agent
 // deny on the host (V3). The one place a mistake widens access is this resolve, so it is tested rather than assumed.
 import { describe, expect, test } from "bun:test"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { registerToolsRpc, type MethodSpec, type ToolCall, type ToolsRpcOptions } from "../../src/host/tools-rpc.js"
 
 type Effect = "allow" | "deny" | "ask"
@@ -69,7 +71,7 @@ async function setup(options: { agent: readonly Rule[]; session: readonly Rule[]
   }
   const handlers: Harness["handlers"] = {}
   const ctx = {
-    location: { directory: "/projects/resolve" },
+    location: { directory: join(tmpdir(), "tools-rpc-resolve") },
     rpc: {
       register: async (_definition: unknown, registered: Harness["handlers"]) => {
         Object.assign(handlers, registered)
@@ -80,7 +82,7 @@ async function setup(options: { agent: readonly Rule[]; session: readonly Rule[]
     session: {
       get: async ({ sessionID }: { sessionID: string }) => {
         if (sessionID !== "ses_1") throw Object.assign(new Error("not found"), { _tag: "Session.NotFoundError" })
-        return { id: sessionID, location: { directory: "/projects/resolve" }, ...sessions.ses_1 }
+        return { id: sessionID, location: { directory: join(tmpdir(), "tools-rpc-resolve") }, ...sessions.ses_1 }
       },
     },
     agent: { get: async ({ agentID, location }: { agentID: string; location: unknown }) => ({ location, data: { id: agentID, permissions: agents[agentID] } }) },
