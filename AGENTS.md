@@ -67,9 +67,11 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
   a safe icon: it runs in the `icons` stage of `npm run check`.
 - **TypeScript.** No enums, namespaces or parameter properties. `import type` for types, `.js` in relative imports.
 - **The tools RPC.** `src/host/tools-rpc.ts` is a copy of a module shared by several plugins. Change only its block
-  between the `PLUGIN-SPECIFIC` markers here; change the rest in the shared copy first. Its methods are `KNOWN_READS`
-  and nothing else: never a write, a denied tool, a scope-withheld read or an unknown tool. Keep the RPC id
-  `jira.issues.tools` and its method names stable: scripts call them by name.
+  between the `PLUGIN-SPECIFIC` markers here; change the rest in the shared copy first. Its methods are every known tool
+  in `src/jira-tools.ts`, by exact name and with its class, and never an unknown tool. A write, a denied tool or a
+  scope-withheld read is a method but runs only on a resolved `allow`; the withheld reads are unavailable because
+  Atlassian never lists them. Keep the RPC id `jira.issues.tools` and its method names stable: scripts call them by
+  name.
 - **Tests.** Unit tests use narrow `Pick<Plugin.Context, ...>` fakes. Host tests use the public `@opencode/sdk` with
   `OpenCode.create({ app: { version } })`, a loopback fake server and the temp root from `test/host/isolate.ts`.
   Every temp root of the host and pack tests is a git repository under the system's `/tmp`, never under `TMPDIR` or

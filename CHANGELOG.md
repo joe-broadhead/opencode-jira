@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [0.0.0] - Unreleased
 
+### Changed
+
+- The tools RPC is v2: every known tool is scriptable under a prior explicit allow, each method carries its class,
+  `describe` takes a session and reports each method's permission, and `shapeInput` runs beside `shapeResult` so a
+  script's call reaches Atlassian with the model path's arguments. A saved "Always allow" no longer authorises an
+  ad-hoc script: a grant is a rule in config, or a Jobs run session.
+
 ### Added
 
 - Registers Atlassian's official MCP server, `https://mcp.atlassian.com/v2/mcp?tools=all`, as `jira`, signed in with

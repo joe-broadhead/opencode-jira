@@ -88,16 +88,20 @@ Two skills teach the model to use Jira well:
 
 ### Scripts
 
-A script or a cron job can call Jira's read tools with no model, through `opencode api`. It runs as a session and its
-agent, under that agent's permission rules and the session's own. Write tools are never available to scripts:
+A script or a cron job can call every known Jira tool with no model, through `opencode api`. It runs as a session and
+its agent, under that agent's permission rules and the session's own. Only a rule that resolves to `allow` runs: a
+write, whose default rule asks, needs an explicit `allow` in the session's or the agent's rules, and the seven denied
+tools need their deny removed. An `ask` is refused before anything reaches Atlassian, and a saved "Always allow" does
+not authorise a script.
 
 ```sh
 opencode api post /api/rpc/jira.issues.tools/getAccessibleAtlassianResources \
+  -H "x-opencode-directory:$PWD" \
   -d '{"input":{"sessionID":"ses_…","input":{}}}'
 ```
 
-`describe` lists the methods and each tool's input schema; every Jira call needs a `cloudId` from
-`getAccessibleAtlassianResources`.
+`describe` lists every method with its class and each tool's input schema, and — given a session — each method's
+permission; every Jira call needs a `cloudId` from `getAccessibleAtlassianResources`.
 
 See [Scripting](https://github.com/joe-broadhead/opencode-jira/blob/HEAD/docs/scripting.md).
 

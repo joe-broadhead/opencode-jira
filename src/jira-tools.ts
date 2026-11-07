@@ -99,7 +99,7 @@ export const DENY_TOOLS: readonly string[] = [
 /**
  * Known reads that the pinned scope does not grant: `getJiraWorkflows`, `getJiraWorkflowEditorLink` and `getJiraScreen`
  * sit in Atlassian's `manage_jira` group, and the sign-in requests no `manage:jira:agent-interface`. Status says they are
- * not granted rather than calling them missing, and the tools RPC leaves them out.
+ * not granted rather than calling them missing; they stay methods, and `describe` reports each unavailable.
  */
 export const NOT_GRANTED_TOOLS: readonly string[] = ["getJiraScreen", "getJiraWorkflowEditorLink", "getJiraWorkflows"]
 
