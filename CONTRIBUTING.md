@@ -118,10 +118,17 @@ check below.
 ### Drift check
 
 The drift check is a manual maintainer check. It is not part of `npm run check` or CI, nothing at runtime depends on
-it, and it never calls Jira or reads a credential. Save the tool list first: in an MCP client, call `tools/list` on
-`https://mcp.atlassian.com/v2/mcp?tools=all` and save the whole result as JSON, `{ "tools": [ { "name", "description",
-"inputSchema"?, "annotations"? } ] }`. That is the one form this repository and the check accept; the fixture
-`test/unit/live-tools.json` is the same shape. Keep a saved list out of this repository, except as that fixture.
+it, and it never calls Jira or reads a credential. **One form, one command.** A saved list is the server's own `tools/list` response: `{ "tools": [ { "name",
+"description", "inputSchema"?, "annotations"? } ] }`, exactly as an MCP client prints it. Save it with the MCP
+Inspector's CLI, which is the command this file names:
+
+```sh
+npx -y @modelcontextprotocol/inspector --cli "https://mcp.atlassian.com/v2/mcp?tools=all" \
+  --method tools/list --header "Authorization: Bearer $ATLASSIAN_TOKEN" > tools-list.json
+```
+
+That is the one form this repository and the check accept; the fixture `test/unit/live-tools.json` is the same shape.
+Keep a saved list out of this repository, except as that fixture.
 
 **Check the shape first.** The list must be the flat one from `?tools=all`. If it holds `discover`, `executeRead`,
 `executeWrite` or `executeDestructive`, the URL lost its query, and the check stops with exit code 2: the plugin's table
