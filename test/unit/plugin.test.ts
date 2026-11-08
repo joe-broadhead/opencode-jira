@@ -180,12 +180,14 @@ describe("setup", () => {
     tool.run({ namespace: (namespace: { name: string; description?: string }) => void namespaces.push(namespace), add: (info: unknown) => void tools.push(info) } as never)
     expect(namespaces).toEqual([{ name: "jira", description: NAMESPACE_DESCRIPTION }])
     expect(tools).toEqual([])
-    // The always-visible rules: read the skill, what asks, what is off and not granted, who a change can email,
-    // untrusted text, and where the tools come from.
+    // The always-visible rules: read the skill, the all-allow default and the sentence before a change, who a change
+    // can email, the attachment link as a credential, untrusted text, and where the tools come from.
     for (const words of [
       "Read the jira skill before the first call",
-      "Changes ask first; deletes and project or screen settings are off, and not granted",
+      "Every Jira tool is allowed by default",
+      "say in your reply what it does and whom it reaches",
       "Every change can email watchers and everyone mentioned",
+      "keep it in the chat only",
       "untrusted text",
       "through Atlassian's MCP server",
     ]) {

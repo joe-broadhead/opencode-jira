@@ -16,7 +16,7 @@ no tool of its own, makes no Atlassian call of its own, and has no runtime depen
 | `src/account.ts` | The account name and the site names from the user's own two account reads, kept in memory, and the `execute.after` hook that captures them |
 | `src/options.ts` | Option parsing and validation |
 | `src/host-version.ts` | The host check: the supported range, and the tested releases |
-| `src/jira-tools.ts` | `READ_TOOLS`, `WRITE_TOOLS`, `DENY_TOOLS`, `NOT_GRANTED_TOOLS`, `PARAMETERS` and `classify()`: every fact the plugin keeps about Jira's tools. No runtime imports, so `scripts/check-jira-tools.mjs` (`npm run drift`) can load it. `PARAMETERS` is used by that script and the tests only, and the build leaves it out; it stays empty until a tool list from a signed-in server is recorded, because Atlassian publishes no schemas |
+| `src/jira-tools.ts` | `READ_TOOLS`, `EXPORT_TOOLS`, `WRITE_TOOLS`, `DESTRUCTIVE_TOOLS`, `NOT_GRANTED_TOOLS`, `PARAMETERS` and `classify()`: every fact the plugin keeps about Jira's tools. No runtime imports, so `scripts/check-jira-tools.mjs` (`npm run drift`) can load it. `PARAMETERS` is used by that script and the tests only, and the build leaves it out; it stays empty until a tool list from a signed-in server is recorded, because Atlassian publishes no schemas |
 | `src/permissions.ts` | The default rules, their placement, and detection of agents without them |
 | `src/status.ts` | The status model and text, `/jira-status`, and the status RPC method |
 | `src/redact.ts` | Redaction for everything status shows: URL credentials, queries and token shapes removed, one line, controls and bidi characters stripped, cut by whole characters |
@@ -83,7 +83,7 @@ every agent's rules (`ctx.agent.list()`) and the skills OpenCode lists (`ctx.ski
 site names come from the capture, never from a call. `buildStatus` turns them into one model, and `formatStatus` renders
 it in a fixed order: Connection (state and server), Account (the captured display name, or "not read yet"), Access (the
 permission posture, and what the default rules let run), Sites (the captured site names, names only), Tools (counts, the
-denied tools, the three not granted by scope, and up to 20 unknown names), Agents without default rules (names, then the
+destructive class, the three not granted by scope, and up to 20 unknown names), Agents without default rules (names, then the
 default rules to paste, one rule a line), OpenCode (version, tested or not, the supported range, and setup problems), and
 exactly one Next step, "Nothing to do." when nothing is needed. For 15 seconds after the server's status changes, no
 tools means "still listing", not "none for this account", so the advice to ask an organisation admin never shows while a
@@ -101,7 +101,7 @@ shown, and a failure's reason is cut to one line of 160 characters with no URL q
 ## Tools RPC
 
 `jira.issues.tools` lets a script call every known tool with no model; [Scripting](scripting.md) is the user's view. Its
-methods are `describe` and one per name in `READ_TOOLS`, `WRITE_TOOLS` and `DENY_TOOLS`, named after the upstream tool,
+methods are `describe` and one per name in `READ_TOOLS`, `EXPORT_TOOLS`, `WRITE_TOOLS` and `DESTRUCTIVE_TOOLS`, named after the upstream tool,
 each with its class. A tool that Atlassian adds later is never a method. The rules are resolved before dispatch: an
 `ask` or a `deny` is refused with no call, and only an `allow` runs. `describe` reports each method's class, and — given
 a session — its permission, and whether OpenCode lists it now; the three reads in `NOT_GRANTED_TOOLS` are available

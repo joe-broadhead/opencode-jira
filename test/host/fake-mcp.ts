@@ -13,7 +13,7 @@
 // session turn that calls Jira's tools.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
-import { DENY_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
+import { DESTRUCTIVE_TOOLS, EXPORT_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
 
 const schema = { type: "object", properties: { query: { type: "string" } } }
 /** A tool the plugin has never seen. */
@@ -24,8 +24,8 @@ export const READ_A = "searchJiraIssuesUsingJql"
 export const READ_B = "getJiraIssue"
 /** The two account reads the host suite calls, which fill the Account and Sites rows. */
 export const ACCOUNT_READS = ["atlassianUserInfo", "getAccessibleAtlassianResources"]
-const TOOLS = [...[READ_A, READ_B, ...ACCOUNT_READS].map((name) => tool(name, true)), ...WRITE_TOOLS.map((name) => tool(name, false)), ...DENY_TOOLS.map((name) => tool(name, false)), { ...NEW_TOOL, inputSchema: schema }]
-const CATALOG = [...READ_TOOLS.map((name) => tool(name, true)), ...[...WRITE_TOOLS, ...DENY_TOOLS].map((name) => tool(name, false)), { ...NEW_TOOL, inputSchema: schema }]
+const TOOLS = [...[READ_A, READ_B, ...ACCOUNT_READS].map((name) => tool(name, true)), ...[...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((name) => tool(name, false)), { ...NEW_TOOL, inputSchema: schema }]
+const CATALOG = [...READ_TOOLS.map((name) => tool(name, true)), ...[...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((name) => tool(name, false)), { ...NEW_TOOL, inputSchema: schema }]
 
 /** The upstream error a "fail" query gets: two lines, the first with a signed URL. */
 export const UPSTREAM_FAILURE = "Jira refused https://api.atlassian.com/a.pdf?signature=fake-signature-123 for this input\nTraceback: second line"

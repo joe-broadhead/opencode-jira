@@ -32,6 +32,7 @@ const stages = {
   host: host,
   pack: () => run("bun", ["test", "./test/pack"]),
   forbidden: () => run("node", ["scripts/check-forbidden.mjs"]),
+  "lint:actions": lintActions,
   whitelist: whitelist,
 }
 
@@ -87,6 +88,23 @@ function host() {
     }
   }
   return 0
+}
+
+/**
+ * `actionlint` over the workflows, when it is on PATH: CI runs it as its own job, and a local run that has it catches
+ * the same mistakes. With no actionlint it prints a notice and passes, so a fresh clone needs no extra tool.
+ */
+function lintActions() {
+  const found = spawnSync("actionlint", ["-no-color"], { cwd: root, env, encoding: "utf8" })
+  if (found.error?.code === "ENOENT") {
+    console.log("actionlint is not on PATH: skipped the workflow lint. CI runs it; install it with `brew install actionlint` to run it here.")
+    return 0
+  }
+  if (found.status !== 0) {
+    console.error(found.stdout ?? "")
+    console.error(found.stderr ?? "")
+  }
+  return found.status ?? 1
 }
 
 function whitelist() {

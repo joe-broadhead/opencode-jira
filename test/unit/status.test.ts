@@ -2,16 +2,17 @@ import { describe, expect, test } from "bun:test"
 import { OAUTH_SCOPE } from "../../src/constants.js"
 import { checkHost } from "../../src/host-version.js"
 import { defaultRules } from "../../src/permissions.js"
-import { buildStatus, formatStatus, readStatus, registerStatusCommand, registerStatusRpc, shortReason, StatusRpc, type Status, type StatusContext, type StatusFacts } from "../../src/status.js"
+import { buildStatus, formatStatus, readStatus, registerStatusCommand , registerStatusRpc, StatusRpc, type Status, type StatusContext, type StatusFacts } from "../../src/status.js"
+import { shortReason } from "../../src/redact.js"
 import { VERSION } from "../../src/version.js"
-import { DENY_TOOLS, NOT_GRANTED_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
+import { NOT_GRANTED_TOOLS } from "../../src/jira-tools.js"
 import { allow } from "./fake.js"
 
 const SIGN_IN = "Run /connect and choose Jira, then press o or Enter to open the link (in a terminal, opencode mcp auth jira opens it automatically; run it from the project folder, and if it answers MCP server not found: jira, wait a few seconds and run it again)."
 const NOTHING_TO_DO = "Nothing to do."
 const NOT_READ_YET = "not read yet: it appears after the first Jira call since OpenCode started"
 /** The default rules as /jira-status shows them: one rule a line, a JSON array body. */
-const AGENT_RULES = defaultRules().map((rule, index, rules) => `  ${JSON.stringify(rule)}${index < rules.length - 1 ? "," : ""}`).join("\n")
+const AGENT_RULES = (access: "all" | "ask-changes" | "read-only" = "all") => defaultRules(access).map((rule, index, rules) => `  ${JSON.stringify(rule)}${index < rules.length - 1 ? "," : ""}`).join("\n")
 
 const host = checkHost("2.2.3", false)
 const URL = "https://mcp.atlassian.com/v2/mcp?tools=all"
@@ -23,9 +24,11 @@ const base: StatusFacts = {
   tools: ["searchJiraIssuesUsingJql"],
 }
 const guarded = { id: "build", permissions: [allow("*"), ...defaultRules()] }
-const RULES = "no agent runs new Jira tools unasked"
-const POSTURE = `reads run without asking; the ${WRITE_TOOLS.length} changes ask first; ${DENY_TOOLS.length} tools are off, and ${NOT_GRANTED_TOOLS.slice(0, -1).join(", ")} and ${NOT_GRANTED_TOOLS.at(-1)} are not granted either`
-const ACCESS = `${POSTURE}; ${RULES}`
+const guardedFor = (access: "all" | "ask-changes" | "read-only") => ({ id: "build", permissions: [allow("*"), ...defaultRules(access)] })
+const RULES = "every agent has the block"
+const GRANT = `, and ${NOT_GRANTED_TOOLS.slice(0, -1).join(", ")} and ${NOT_GRANTED_TOOLS.at(-1)} are not granted either`
+const POSTURE = "every Jira tool is allowed, reads and changes alike"
+const ACCESS = `access all: ${POSTURE}${GRANT}; ${RULES}`
 const NOT_GRANTED = `not granted by scope: ${NOT_GRANTED_TOOLS.slice(0, -1).join(", ")} and ${NOT_GRANTED_TOOLS.at(-1)}`
 
 describe("buildStatus", () => {
@@ -37,7 +40,9 @@ describe("buildStatus", () => {
       source: { type: "plugin", url: URL, signIn: "oauth" },
       account: "Sam Okafor",
       sites: ["Acme", "Sandbox"],
+      access: "all",
       tools: 1,
+      destructiveTools: [],
       deniedTools: [],
       notGranted: [...NOT_GRANTED_TOOLS],
       listing: false,
@@ -155,16 +160,17 @@ describe("buildStatus", () => {
     )
   })
 
-  test("counts the available tools, names the unknown ones, and counts denied ones apart; missing known tools are normal", () => {
+  test("counts the available tools, names the unknown ones, and counts the destructive class apart; missing known tools are normal", () => {
     const status = buildStatus({ ...base, tools: ["searchJiraIssuesUsingJql", "createJiraIssue", "editJiraEntityProperty", "shiny_new_tool", "new_tool_2"] })
-    expect(status.tools).toBe(4)
-    expect(status.deniedTools).toEqual(["editJiraEntityProperty"])
+    expect(status.tools).toBe(5)
+    expect(status.destructiveTools).toEqual(["editJiraEntityProperty"])
+    expect(status.deniedTools).toEqual(status.destructiveTools)
     expect(status.unknownCount).toBe(2)
     expect(status.unknownTools).toEqual(["shiny_new_tool", "new_tool_2"])
-    expect(formatStatus(status)).toContain(`- Tools: 4 available, 2 unknown: shiny_new_tool, new_tool_2 (unknown tools ask before running); off by default: editJiraEntityProperty; ${NOT_GRANTED}\n`)
+    expect(formatStatus(status)).toContain(`- Tools: 5 available, 2 unknown: shiny_new_tool, new_tool_2 (a tool Atlassian adds is allowed at once); editJiraEntityProperty allowed like everything else; ${NOT_GRANTED}\n`)
     expect(status.nextStep).toBe(NOTHING_TO_DO)
-    const denied = buildStatus({ ...base, tools: ["searchJiraIssuesUsingJql", "deleteJiraIssue", "deleteJiraComment"] })
-    expect(formatStatus(denied)).toContain("- Tools: 1 available, 0 unknown; off by default: deleteJiraIssue and deleteJiraComment; not granted by scope: ")
+    const restrictive = buildStatus({ ...base, access: "read-only", tools: ["searchJiraIssuesUsingJql", "deleteJiraIssue", "deleteJiraComment"] })
+    expect(formatStatus(restrictive)).toContain("- Tools: 3 available, 0 unknown; deleteJiraIssue and deleteJiraComment denied; not granted by scope: ")
   })
 
   test("a server that just connected and lists no tools yet is still listing them, with no advice to ask an admin", () => {
@@ -180,14 +186,18 @@ describe("buildStatus", () => {
     expect(buildStatus({ ...base, tools: [], settling: true, server: { status: "pending" } })).toMatchObject({ listing: false, state: "connecting" })
   })
 
-  test("the Access row says whether the default rules are in place, from what status can see", () => {
+  // R18: the Access row names the value, then the posture that value gives, then whether the block is in place.
+  test("the Access row names the access value and whether the default rules are in place", () => {
     expect(formatStatus(buildStatus(base))).toContain(`- Access: ${ACCESS}\n`)
-    // The posture is the tool lists': 14 changes ask, 7 tools are off.
-    expect(ACCESS).toContain("the 14 changes ask first; 7 tools are off, and getJiraScreen, getJiraWorkflowEditorLink and getJiraWorkflows are not granted either")
-    const missing = buildStatus({ ...base, agents: [{ id: "reviewer", permissions: [allow("*")] }] })
-    expect(formatStatus(missing)).toContain(`- Access: ${POSTURE}; default rules missing in the agents listed below\n`)
-    const problem = "RULES_NOT_ADDED: Jira's default permission rules could not be added (boom), so Jira tools may run without asking. Next step: Restart OpenCode."
-    expect(formatStatus(buildStatus({ ...base, problems: [problem] }))).toContain(`- Access: ${POSTURE}; default rules not added (see the OpenCode row)\n`)
+    // The posture is the tool lists': 14 writes and 7 destructive tools are denied under read-only.
+    expect(ACCESS).toContain(POSTURE)
+    expect(ACCESS).toContain("getJiraScreen, getJiraWorkflowEditorLink and getJiraWorkflows are not granted either")
+    const restrictive = { ...base, access: "read-only" as const }
+    expect(formatStatus(buildStatus(restrictive))).toContain(`- Access: access read-only: reads run without asking; the 14 writes and the 7 destructive tools are denied${GRANT}; ${RULES}\n`)
+    const missing = buildStatus({ ...restrictive, agents: [{ id: "reviewer", permissions: [allow("*")] }] })
+    expect(formatStatus(missing)).toContain(`- Access: access read-only: reads run without asking; the 14 writes and the 7 destructive tools are denied${GRANT}; default rules missing in the agents listed below\n`)
+    const problem = "RULES_NOT_ADDED: Jira's default permission rules could not be added (boom). Next step: Restart OpenCode."
+    expect(formatStatus(buildStatus({ ...base, problems: [problem] }))).toContain(`- Access: ${ACCESS.replace(RULES, "default rules not added (see the OpenCode row)")}\n`)
   })
 
   test("a failure's reason never carries a token or key the host's text echoed", () => {
@@ -202,18 +212,19 @@ describe("buildStatus", () => {
     const status = buildStatus({ ...base, tools: ["searchJiraIssuesUsingJql", ...odd, ...many] })
     expect(status.unknownCount).toBe(29)
     expect(status.unknownTools).toEqual(many.slice(0, 20))
-    expect(formatStatus(status)).toContain(`- Tools: 30 available, 29 unknown: ${many.slice(0, 20).join(", ")} and 9 more (unknown tools ask before running)`)
-    expect(formatStatus(buildStatus({ ...base, tools: odd }))).toContain("- Tools: 4 available, 4 unknown (unknown tools ask before running)")
+    expect(formatStatus(status)).toContain(`- Tools: 30 available, 29 unknown: ${many.slice(0, 20).join(", ")} and 9 more (a tool Atlassian adds is allowed at once)`)
+    expect(formatStatus(buildStatus({ ...base, tools: odd }))).toContain("- Tools: 4 available, 4 unknown (a tool Atlassian adds is allowed at once)")
   })
 
   test("names agents without the default rules, with the block to paste, and points the next step at it", () => {
-    const status = buildStatus({ ...base, agents: [guarded, { id: "reviewer", permissions: [allow("*")] }] })
+    const readOnly = { ...base, access: "read-only" as const }
+    const status = buildStatus({ ...readOnly, agents: [guardedFor("read-only"), { id: "reviewer", permissions: [allow("*")] }] })
     expect(status.unguardedAgents).toEqual(["reviewer"])
     expect(status.nextStep).toBe(
       "Put the default rules shown by /jira-status first in each listed agent's own permissions, in opencode.json or the agent's Markdown file, followed by your top-level rules for Jira tools.",
     )
-    expect(JSON.parse(`[${AGENT_RULES}]`)).toEqual(defaultRules())
-    expect(formatStatus(status)).toContain(`- Agents without default rules: reviewer\n${AGENT_RULES}\n- OpenCode:`)
+    expect(JSON.parse(`[${AGENT_RULES("read-only")}]`)).toEqual(defaultRules("read-only"))
+    expect(formatStatus(status)).toContain(`- Agents without default rules: reviewer\n${AGENT_RULES("read-only")}\n- OpenCode:`)
   })
 
   test("an agent whose own rules already ask or deny for every Jira tool is not listed", () => {
@@ -222,11 +233,11 @@ describe("buildStatus", () => {
       { id: "denies-jira", permissions: [allow("*"), { action: "jira_*", resource: "*", effect: "deny" as const }] },
       { id: "reviewer", permissions: [allow("*")] },
     ]
-    expect(buildStatus({ ...base, agents }).unguardedAgents).toEqual(["reviewer"])
+    expect(buildStatus({ ...base, access: "read-only", agents }).unguardedAgents).toEqual(["reviewer"])
   })
 
   test("the sign-in step comes before the agent fix, which still shows, and there is one next step", () => {
-    const status = buildStatus({ ...base, server: { status: "needs_auth", error: "x" }, agents: [{ id: "reviewer", permissions: [allow("*")] }] })
+    const status = buildStatus({ ...base, access: "read-only", server: { status: "needs_auth", error: "x" }, agents: [{ id: "reviewer", permissions: [allow("*")] }] })
     expect(status.nextStep).toBe(SIGN_IN)
     const text = formatStatus(status)
     expect(text).toContain(`- Connection: sign-in required (${URL}, registered by this plugin)`)
@@ -246,7 +257,8 @@ describe("buildStatus", () => {
     expect(status.shadowedSkills).toEqual([{ id: "jira", path: "/projects/acme/.opencode/skills/jira/SKILL.md" }])
     expect(status.nextStep).toBe('Rename or move the "jira" skill at /projects/acme/.opencode/skills/jira/SKILL.md, which OpenCode loads instead of the plugin\'s skill of the same name.')
     expect(buildStatus({ ...base, skills: { own, listed: own } })).not.toHaveProperty("shadowedSkills")
-    expect(buildStatus({ ...base, skills: { own, listed }, agents: [{ id: "reviewer", permissions: [allow("*")] }] }).nextStep).toStartWith("Put the default rules")
+    // With a restricting access, an agent missing the block comes before the skill: the order says which matters first.
+    expect(buildStatus({ ...base, access: "read-only", skills: { own, listed }, agents: [{ id: "reviewer", permissions: [allow("*")] }] }).nextStep).toStartWith("Put the default rules")
   })
 
   test("an untested host and setup problems show on the OpenCode row; a problem's own next step comes first", () => {
@@ -269,7 +281,7 @@ describe("buildStatus", () => {
 function statusContext(server: string, skills: Promise<unknown> = Promise.resolve({ data: [] })) {
   const ctx = {
     mcp: { list: async () => ({ data: [{ name: "github", status: { status: "connected" } }, { name: "jira", status: { status: server }, integrationID: "mcp_fake" }] }) },
-    agent: { list: async () => ({ data: [guarded, { id: "reviewer", permissions: [allow("*")] }] }) },
+    agent: { list: async () => ({ data: [guardedFor("read-only"), { id: "reviewer", permissions: [allow("*")] }] }) },
     tool: {
       list: async () => [
         { id: "jira_searchJiraIssuesUsingJql", name: "searchJiraIssuesUsingJql", options: { namespace: "jira" } },
@@ -286,7 +298,7 @@ function statusContext(server: string, skills: Promise<unknown> = Promise.resolv
 describe("readStatus", () => {
   test("reads connection, tools and agents through public APIs, and the captured account and sites", async () => {
     const account = { current: () => ({ name: "Sam Okafor", sites: ["Acme", "Sandbox"] }), forget: () => {} }
-    const status = await readStatus(statusContext("connected"), { source: { type: "plugin", url: URL, signIn: "oauth" }, host, problems: [], listing: { changedAt: () => 0 }, account })
+    const status = await readStatus(statusContext("connected"), { source: { type: "plugin", url: URL, signIn: "oauth" }, host, problems: [], listing: { changedAt: () => 0 }, account, access: "read-only" })
     expect(status).toMatchObject({ state: "connected", account: "Sam Okafor", sites: ["Acme", "Sandbox"], tools: 2, unknownTools: ["shiny_new_tool"], unguardedAgents: ["reviewer"], listing: false })
   })
 

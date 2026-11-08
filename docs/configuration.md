@@ -18,6 +18,16 @@ To set options, use the object form:
 
 ## Options
 
+### `access`
+
+- Type: `"all"`, `"ask-changes"` or `"read-only"`.
+- Default: `"all"`.
+
+How much the default rules restrict. `all` allows every Jira tool; `ask-changes` allows a read and asks for every other
+tool; `read-only` allows a read and denies every other tool, which also hides it from the model. The classes come from
+`src/jira-tools.ts`, so the value decides a tool Atlassian adds later too. [Permissions](#permissions) has the three
+generated blocks.
+
 ### `allowUntestedHost`
 
 - Type: `true` or `false`.
@@ -40,7 +50,8 @@ range in its `OpenCode` row, for example `2.2.5 (tested; supported range >=2.2.3
 - **Outside the range with `"allowUntestedHost": true`:** it starts anyway, and `/jira-status` and `/jira` show a
   warning.
 
-There is no other option. To narrow what the model may do in Jira, use permission rules; see [Permissions](#permissions).
+There is no other option. To narrow what the model may do in Jira per agent or per tool, use permission rules; see
+[Permissions](#permissions).
 
 ## Your own `mcp.servers.jira`
 
@@ -127,33 +138,23 @@ The plugin compares origin, path and query: a plain `/v2/mcp`, a v1 URL, another
 
 ## Permissions
 
-OpenCode asserts every MCP call itself, with the action `jira_<tool>` and the resource `*`. The plugin adds these rules
-to every agent that starts with the base rule `{ "action": "*", "resource": "*", "effect": "allow" }`, directly after
-that rule:
+OpenCode asserts every MCP call itself, with the action `jira_<tool>` and the resource `*`. The plugin adds its
+block to every agent that starts with the base rule `{ "action": "*", "resource": "*", "effect": "allow" }`, directly
+after that rule. The README prints the whole block, rule for rule, in
+[Permissions](https://github.com/joe-broadhead/opencode-jira/blob/HEAD/README.md#permissions); `/jira-status` prints
+it too, and its `Agents without default rules` row prints it as a list to paste.
 
-```json
-[
-  { "action": "jira_*", "resource": "*", "effect": "ask" },
-  { "action": "jira_getJiraIssue", "resource": "*", "effect": "allow" },
-  { "action": "jira_searchJiraIssuesUsingJql", "resource": "*", "effect": "allow" },
-  { "action": "jira_deleteJiraIssue", "resource": "*", "effect": "deny" },
-  { "action": "jira_deleteJiraComment", "resource": "*", "effect": "deny" },
-  { "action": "jira_deleteJiraIssueAttachment", "resource": "*", "effect": "deny" },
-  { "action": "jira_createJiraProject", "resource": "*", "effect": "deny" },
-  { "action": "jira_updateJiraProject", "resource": "*", "effect": "deny" },
-  { "action": "jira_updateJiraScreen", "resource": "*", "effect": "deny" },
-  { "action": "jira_editJiraEntityProperty", "resource": "*", "effect": "deny" }
-]
-```
+`READ_TOOLS` in `src/jira-tools.ts` lists Jira's read tools, `EXPORT_TOOLS` the one that mints a signed URL,
+`WRITE_TOOLS` its write tools, and `DESTRUCTIVE_TOOLS` the seven that `access: "read-only"` denies and
+`access: "ask-changes"` asks for. A tool Atlassian adds later matches `jira_*` alone, and takes the same value's
+effect. `/jira-status` names the tools in no list. Atlassian lists only the tools a grant covers, so a known tool can be
+missing; that is normal, and `NOT_GRANTED_TOOLS` names the three that this plugin's scope never grants.
 
-That sample leaves out the other 31 read allows, which sit between the two shown; `/jira-status` prints the whole block,
-and its `Agents without default rules` row prints it as a list to paste.
+**Every tool is allowed by default**, so nothing is switched off for you. These deserve their own sentence before you
+decide:
 
-`READ_TOOLS` in `src/jira-tools.ts` lists Jira's read tools, `WRITE_TOOLS` its write tools, and `DENY_TOOLS` the seven
-that are off. Writes and tools that Atlassian adds later match only `jira_*`, so they ask. `/jira-status` names the tools
-in no list. Atlassian lists only the tools a grant covers, so a known tool can be missing; that is normal, and
-`NOT_GRANTED_TOOLS` names the three that this plugin's scope never grants.
-
+- `jira_downloadJiraIssueAttachment` mints a short-lived signed URL and a curl command, which is a file credential. Its
+  output belongs in your chat only.
 - `jira_createJiraProject` creates a new organisation-visible space, with its own permissions, schemes and members.
 - `jira_updateJiraProject` changes a space's settings for everyone in it.
 - `jira_updateJiraScreen` changes a company-managed screen's fields for everyone in the project, so it changes what other
@@ -163,56 +164,43 @@ in no list. Atlassian lists only the tools a grant covers, so a known tool can b
 - `jira_editJiraEntityProperty` writes opaque key/value state that other Jira apps and integrations read, and can target a
   user.
 
-To turn one on, add a rule that makes it ask to the agent's own `permissions`, which come after the plugin's block in
-that agent. Each call then asks. For the build agent:
+There are three ways to restrict the block, and everything later still wins:
+
+1. the `access` option, for the whole plugin;
+2. the agent's own `permissions`, for one agent;
+3. your top-level `permissions`, which OpenCode adds to every agent.
+
+### `access`
+
+| Value | What runs |
+| --- | --- |
+| `all` (the default) | every Jira tool runs without a prompt |
+| `ask-changes` | a read runs; every other tool asks, including one Atlassian adds later |
+| `read-only` | a read runs; every other tool is denied, and hidden from the model |
+
+The value generates the block from the tool table's classes, so `/jira` and `/jira-status` always show what is in
+force; the README prints the three blocks in full. A namespace rule (`jira_*`) comes first, and each known tool's own
+rule after it, so a tool Atlassian adds later takes the value's own effect.
+
+### Recipes
+
+To restrict one agent, put the rules in that agent's own `permissions`; a top-level `ask` or `allow` would reach every
+agent, Explore included. A read-only agent that asks for one change:
 
 ```json
 {
   "agents": {
     "build": {
       "permissions": [
-        { "action": "jira_deleteJiraIssue", "resource": "*", "effect": "ask" },
-        { "action": "jira_deleteJiraComment", "resource": "*", "effect": "ask" },
-        { "action": "jira_deleteJiraIssueAttachment", "resource": "*", "effect": "ask" },
-        { "action": "jira_createJiraProject", "resource": "*", "effect": "ask" },
-        { "action": "jira_updateJiraProject", "resource": "*", "effect": "ask" },
-        { "action": "jira_updateJiraScreen", "resource": "*", "effect": "ask" },
-        { "action": "jira_editJiraEntityProperty", "resource": "*", "effect": "ask" }
+        { "action": "jira_*", "resource": "*", "effect": "ask" },
+        { "action": "jira_getJiraIssue", "resource": "*", "effect": "allow" },
+        { "action": "jira_searchJiraIssuesUsingJql", "resource": "*", "effect": "allow" },
+        { "action": "jira_transitionJiraIssue", "resource": "*", "effect": "ask" }
       ]
     }
   }
 }
 ```
-
-Six of the seven are also not granted by the plugin's pinned request, so this rule alone is not enough, and no admin
-action can supply the missing scope: a new release of the plugin must request it, an organisation admin must enable the
-permission group, and even then the rule keeps it asking. `jira_editJiraEntityProperty` sits in the write group, so it
-is granted, and this block's ask for it works today; for the other six, the rule is inert until such a release.
-
-Don't put these in the top-level `permissions`: a top-level rule comes after every agent's own rules, so it would reach
-every agent, Explore included, which otherwise can't use Jira. For an agent that exists only in your config, put them
-after the plugin's block (see [Agents that miss the rules](#agents-that-miss-the-rules)).
-
-Use only the rules you need. Never make a denied tool `allow`, and don't answer "Always allow" when it asks: OpenCode
-would save an allow for every agent in the project. Two tools also do several operations behind one name:
-`jira_manageJiraSprint` and `jira_manageJiraProjectVersion`, which include closing a sprint and releasing a version. A
-rule cannot see which operation a call makes, so the skill names it before the call. To bound them harder, deny them in
-the top level, for everyone: a top-level rule comes last, so no agent can lift it, and the per-agent exception has to be
-a narrower top-level deny or left out.
-
-OpenCode uses the last rule that matches, so everything after the plugin's rules wins:
-
-1. the agent's own rules, such as Explore's, which turn Jira off there;
-2. your top-level `permissions`, which OpenCode adds to every agent;
-3. your saved "Always allow" answers, which beat an `ask` but never a configured `deny`.
-
-A `deny` on resource `*` also hides the tool from the model. In an unattended run such as `opencode run`, a tool that
-asks is refused. An agent without the base rule gets no Jira rules and keeps its own behaviour.
-
-### Recipes
-
-A `deny` can go in the top-level `permissions` of `opencode.json`: it applies to every agent, and only tightens. An
-`allow` or `ask` goes in the agent's own `permissions`: a top-level one would reach every agent, Explore included.
 
 Never create work items, in any agent (a `deny` also hides the tool):
 
@@ -229,35 +217,37 @@ Keep closing sprints and releasing versions out of every agent, including ones a
 ]
 ```
 
-A change always asks, and this guide documents no `allow` for one. A write emails the watchers, the assignee, the
-reporter and anyone it mentions, so the prompt is the last thing between the model and those people. A saved "Always
-allow" would remove it for every agent in the project, and the person answering a prompt sees only the tool's input,
-not the sentence on whom it reaches. In an unattended run such as `opencode run`, nobody can answer, so a change is
-refused: run changes interactively instead.
-
-A strict agent where every Jira tool asks, reads included: put these in that agent's own `permissions`, after the
-block. The last match wins, so the `jira_*` ask alone would turn the seven denied tools into asks too; repeating their
-denies after it keeps them off:
+A single tool off for everyone, in the top-level `permissions`:
 
 ```json
-[
-  { "action": "jira_*", "resource": "*", "effect": "ask" },
-  { "action": "jira_deleteJiraIssue", "resource": "*", "effect": "deny" },
-  { "action": "jira_deleteJiraComment", "resource": "*", "effect": "deny" },
-  { "action": "jira_deleteJiraIssueAttachment", "resource": "*", "effect": "deny" },
-  { "action": "jira_createJiraProject", "resource": "*", "effect": "deny" },
-  { "action": "jira_updateJiraProject", "resource": "*", "effect": "deny" },
-  { "action": "jira_updateJiraScreen", "resource": "*", "effect": "deny" },
-  { "action": "jira_editJiraEntityProperty", "resource": "*", "effect": "deny" }
-]
+{ "action": "jira_deleteJiraIssue", "resource": "*", "effect": "deny" }
 ```
+
+Six of the seven destructive tools are also not granted by the plugin's pinned request, so with `access: "all"` they
+still never arrive, and no admin action can supply the missing scope: a new release of the plugin must request it and an
+organisation admin must enable the permission group. `jira_editJiraEntityProperty` sits in the write group, so it is
+granted, and the deny above is the lock that keeps it off.
+
+Use only the rules you need. Two tools do several operations behind one name: `jira_manageJiraSprint` and
+`jira_manageJiraProjectVersion`, which include closing a sprint and releasing a version. A rule cannot see which
+operation a call makes, so the skill names it before the call.
+
+OpenCode uses the last rule that matches, so everything after the plugin's rules wins:
+
+1. the agent's own rules, such as Explore's, which turn Jira off there;
+2. your top-level `permissions`, which OpenCode adds to every agent;
+3. your saved "Always allow" answers, which beat an `ask` but never a configured `deny`.
+
+A `deny` on resource `*` also hides the tool from the model. In an unattended run such as `opencode run`, a tool that
+asks is refused. An agent without the base rule gets no Jira rules and keeps its own behaviour.
 
 ### Agents that miss the rules
 
 OpenCode creates agents that exist only in your config after plugins add their rules, so those agents get no Jira
 rules; agents that a later plugin adds are in the same position. An agent counts as guarded when the plugin's whole block
-appears anywhere after its base allow. `/jira-status` and `/jira` list every other agent that has a base allow and where
-a new Jira tool would run without asking, by name, followed by the default rules to paste. The next step reads:
+appears anywhere after its base allow. Under `access: "all"` that changes nothing, because the block restates the base
+allow; under `ask-changes` or `read-only`, `/jira-status` and `/jira` list every other agent that has a base allow and
+where a new Jira tool would run unrestricted, by name, followed by the default rules to paste. The next step reads:
 
 ```text
 Put the default rules shown by /jira-status first in each listed agent's own permissions, in opencode.json or the agent's Markdown file, followed by your top-level rules for Jira tools.
@@ -285,7 +275,7 @@ agent's own rules, so it would loosen Explore. For an agent `reviewer`, with one
 ```
 
 Copy the full block from your own `/jira-status` output: the sample above keeps the first read allow and your own rule,
-and leaves out the other 32.
+and leaves out the rest.
 
 ## Errors
 
@@ -303,7 +293,7 @@ Every error from the plugin reads `CODE: What happened. Next step: What to do.`
 For example:
 
 ```text
-OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "@joe-broadhead/opencode-jira", "options": { "allowUntestedHost": true } }].
+OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost", "access". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "@joe-broadhead/opencode-jira", "options": { "access": "ask-changes" } }].
 ```
 
 Errors from Atlassian's server and from OpenCode pass through unchanged, including `invalid_token`, a refusal for a scope
@@ -320,28 +310,30 @@ token, no header and no URL query, and makes no Atlassian call. `version`, `host
 | Field | Content |
 | --- | --- |
 | `version` | The plugin's version |
+| `access` | The `access` value in force: `all`, `ask-changes` or `read-only`. |
 | `state` | `connected`, `sign_in_required`, `connecting`, `disabled`, `failed`, `not_configured` or `conflict`. The `Connection` row shows the same states as `connected`, `sign-in required`, `connecting`, `disabled`, `failed`, `not configured` and `conflict`. |
 | `error` | For a failed connection only: OpenCode's reason, on one line of at most 160 characters, with any URL cut before its query. The text for a needed sign-in can hold an authorization URL, so it is never shown. |
 | `source` | `type` (`plugin`, `adopted` or `conflict`), `url`, `signIn` (`oauth`, or `own` for your own entry with `"oauth": false`), `scope` for an adopted entry (`pinned`, `missing`, `wider`, `narrower` or `token`), and for a conflict the `expected` URL |
 | `account` | The display name from your last `atlassianUserInfo` result, on one line of at most 80 characters; absent before one. Never an email address or an account id. |
 | `sites` | The site names from your last `getAccessibleAtlassianResources` result, at most ten, in its order; empty before one. Never a cloud id, a URL or an app. |
-| `tools` | How many Jira tools OpenCode lists that the default rules let run or ask: the listed ones, without the denied ones |
-| `deniedTools` | The listed tools that the default rules deny, such as `editJiraEntityProperty`. The `Tools` row shows them as "off by default"; your own later `ask` rule may have turned one on. |
+| `tools` | How many Jira tools OpenCode lists that the plugin knows; a tool Atlassian adds is counted under `unknownCount`. |
+| `destructiveTools` | The listed tools of the destructive class, such as `editJiraEntityProperty`. What happens to them follows `access`. `deniedTools` carries the same list under its old name. |
 | `notGranted` | The three known reads this plugin's scope does not grant, so Atlassian never lists them. Empty for your own entry, whose scope is its own. |
 | `listing` | True while a server that connected moments ago lists no tools yet. The next step is then to run `/jira-status` again in a few seconds, not to ask an admin. |
 | `unknownCount`, `unknownTools` | How many of them the plugin does not know, and at most 20 of their names, only those made of lowercase letters, digits and `_` |
-| `unguardedAgents` | Agents where a new Jira tool would run without asking; empty when there are none. An agent whose own rules already ask or deny for every Jira tool is not listed. |
+| `unguardedAgents` | Agents where a new Jira tool would run unrestricted under `ask-changes` or `read-only`; always empty under `all`, where the block restates the base allow. An agent whose own rules already ask or deny for every Jira tool is not listed. |
 | `shadowedSkills` | Present only when a skill with one of the plugin's ids, such as your own `jira` skill, replaces the plugin's: each `id` and the `path` OpenCode loads instead |
 | `host` | `version` (`null` if OpenCode reports none), `range` (the supported range) and `tested` (true only for 2.2.3, 2.2.4, 2.2.5 and 2.2.6) |
 | `problems` | Setup problems, each `CODE: What happened. Next step: What to do.` |
 | `nextStep` | Exactly one next step: the `Next step` row, `Nothing to do.` when nothing is needed |
 
-The `Access` row states the posture the default rules fix, from the tool lists: "reads run without asking; the 14
-changes ask first; 7 tools are off", then what the request leaves out, from `notGranted`: "and getJiraScreen,
+The `Access` row starts with the `access` value and the posture it gives, from the tool lists: "access all: every Jira
+tool is allowed, reads and changes alike", or under `read-only`, "reads run without asking; the 14 writes and the 7
+destructive tools are denied". Then what the request leaves out, from `notGranted`: "and getJiraScreen,
 getJiraWorkflowEditorLink and getJiraWorkflows are not granted either". An adopted entry of your own instead says what
 its own `oauth.scope` asks for: that it asks for no scope, more than the pin, or less, each with the `"oauth": {
-"scope": … }` line to paste. Then the row says whether the default rules are in place: "no agent runs new Jira tools
-unasked", "default rules missing in the agents listed below", or "default rules not added (see the OpenCode row)".
+"scope": … }` line to paste. Then the row says whether the default rules are in place: "every agent has the block",
+"default rules missing in the agents listed below", or "default rules not added (see the OpenCode row)".
 
 The `Sites` row names the sites your account reaches, or says the read has not happened yet. It sits between `Access` and
 `Tools`.

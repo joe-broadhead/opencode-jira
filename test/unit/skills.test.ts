@@ -4,11 +4,11 @@
 import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
-import { DENY_TOOLS, PARAMETERS, READ_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
+import { DESTRUCTIVE_TOOLS, EXPORT_TOOLS, PARAMETERS, READ_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
 import { parseSkill, SKILL_NAMES, SKILLS_DIR } from "../../src/skills.js"
 
 const NAMES = [...SKILL_NAMES]
-const KNOWN = [...READ_TOOLS, ...WRITE_TOOLS, ...DENY_TOOLS]
+const KNOWN = [...READ_TOOLS, ...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]
 const MAX_LINES = 100
 // Words from the plugin's own process that mean nothing to the model or the user.
 const JARGON = /manifest|attest|quarantin|acceptance|harness|fixture|\bfork\b|dispatch|\blease\b|catalog|allowlist|capabilit|\bWS-[A-Z0-9]|PLAN\.md|drift|provisional|\bTODO\b|\bevals?\b/i
@@ -171,17 +171,19 @@ describe("skills", () => {
     expect(text).toContain("it writes a link, it does not read the page.")
   })
 
-  test("jira-write says what a write does and whom it reaches, then makes the call: the permission prompt is the yes", () => {
+  test("jira-write says what a write does and whom it reaches, then makes the call, with the access values named", () => {
     const text = flat("jira-write")
     expect(text).toMatch(/Before each write call, write one sentence in your reply on what the call does and \*\*whom it reaches\*\*, then make the call in the same turn/)
-    expect(text).toMatch(/That sentence is chat text, not a question: the permission prompt shows only the tool input and is the user's yes/)
+    // R18: the default allows a change, so the sentence is the only warning; ask-changes makes the prompt the yes.
+    expect(text).toMatch(/Every Jira tool is allowed by default, so a change can run with no prompt: your sentence is the only warning/)
+    expect(text).toMatch(/Under `access: "ask-changes"` the permission prompt is the user's yes, and `read-only` denies the call/)
     expect(text).toMatch(/Ask in chat first only when something must be chosen: which site, which work item, which transition/)
     expect(text).toMatch(/Declined: say nothing changed, name whom it would have reached, and offer your drafted text or a retry, never a workaround/)
     expect(text).not.toMatch(/wait for a yes|get a yes|only after a yes|wait for (?:the user's )?(?:confirmation|approval)/i)
   })
 
   test("jira-write's commonest write names its recipients, and the sprint and version verbs are concrete", () => {
-    const reach = flat("jira-write").split("## Whom each change reaches")[1]?.split("## Off by default")[0] ?? ""
+    const reach = flat("jira-write").split("## Whom each change reaches")[1]?.split("## The destructive class")[0] ?? ""
     expect(reach).toContain("whose notifications email its assignee, reporter and watchers, and anyone the text mentions")
     expect(reach).toContain('"This closes sprint [name] on [board]')
     expect(reach).toContain("with starts, creates or updates in place of closes, and no effect clause after it")
@@ -221,17 +223,17 @@ describe("skills", () => {
     expect(text).toContain("`listJiraIssueTransitions` for a transition; for a create, `listJiraProjects`, then `listJiraProjectIssueTypesMetadata` for that project's types, then `getJiraIssueTypeMetaWithFields`; and for an edit, that plus the current item")
   })
 
-  test("jira-write names every denied tool as off, gives the ask rule that turns one on, and never works around it", () => {
-    const off = (read("jira-write").split("## Off by default")[1]?.split("\n## ")[0] ?? "").replace(/\s+/g, " ")
-    for (const name of DENY_TOOLS) expect(off).toContain(`\`${name}\``)
+  test("jira-write names every destructive tool, gives the deny rule that keeps one off, and never works around it", () => {
+    const off = (read("jira-write").split("## The destructive class")[1]?.split("\n## ")[0] ?? "").replace(/\s+/g, " ")
+    for (const name of DESTRUCTIVE_TOOLS) expect(off).toContain(`\`${name}\``)
     expect(off).toContain("Six are also not granted by the signed-in scope, so Atlassian never loads them")
-    expect(off).toContain("this plugin asks for neither scope, so no admin and no rule can bring one back until the plugin itself requests it")
-    expect(off).toContain("`editJiraEntityProperty` is the exception: it is granted, so the rule alone brings it back")
+    expect(off).toContain("this plugin asks for neither scope, so no admin can bring one back until the plugin itself requests it")
+    expect(off).toContain("`editJiraEntityProperty` is the exception, so with `access: \"all\"` it can run")
     expect(off).toContain("**Never a substitute:** closing, editing, re-parenting or commenting an item is not a delete")
     expect(off).toContain("an admin would have to grant the scope **and** enable the permission group")
-    expect(off).toContain('`{ "action": "jira_deleteJiraIssue", "resource": "*", "effect": "ask" }`')
-    expect(off).toContain("Never suggest `allow` or \"Always allow\"")
-    expect(off).toMatch(/Don't `search\(\)` for these tools: a missing one is the deny/)
+    expect(off).toContain('`{ "action": "jira_deleteJiraIssue", "resource": "*", "effect": "deny" }`')
+    expect(off).toContain("Never suggest \"Always allow\" for a delete")
+    expect(off).toMatch(/Don't `search\(\)` for these tools when the scope withholds them/)
     expect(off).toContain("Offer the read-only path")
     expect(off).not.toMatch(/"effect": "allow"/)
   })

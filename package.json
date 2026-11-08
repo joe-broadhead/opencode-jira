@@ -90,7 +90,7 @@
   },
   "jelly": {
     "title": "Jira",
-    "summary": "Find and read your Jira work items, boards and sprints, and make selected changes with approval.",
+    "summary": "Find and read your Jira work items, boards and sprints, and make changes.",
     "icon": "assets/icon.svg",
     "tools": [
       {
@@ -103,7 +103,7 @@
         "name": "jira.downloadJiraIssueAttachment",
         "permission": "jira_downloadJiraIssueAttachment",
         "effect": "allow",
-        "readOnly": true
+        "readOnly": false
       },
       {
         "name": "jira.getAccessibleAtlassianResources",
@@ -294,127 +294,127 @@
       {
         "name": "jira.addOrEditJiraIssueComment",
         "permission": "jira_addOrEditJiraIssueComment",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.addOrEditJiraIssueWorklog",
         "permission": "jira_addOrEditJiraIssueWorklog",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.convertJiraIssueHierarchy",
         "permission": "jira_convertJiraIssueHierarchy",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.createJiraBoard",
         "permission": "jira_createJiraBoard",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.createJiraIssue",
         "permission": "jira_createJiraIssue",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.createJiraIssueLink",
         "permission": "jira_createJiraIssueLink",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.createJiraIssueRemoteIssueLink",
         "permission": "jira_createJiraIssueRemoteIssueLink",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.editJiraIssue",
         "permission": "jira_editJiraIssue",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.manageJiraProjectVersion",
         "permission": "jira_manageJiraProjectVersion",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.manageJiraProjectVersionRelatedWork",
         "permission": "jira_manageJiraProjectVersionRelatedWork",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.manageJiraSprint",
         "permission": "jira_manageJiraSprint",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.transitionJiraIssue",
         "permission": "jira_transitionJiraIssue",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.uploadAttachmentToJiraIssue",
         "permission": "jira_uploadAttachmentToJiraIssue",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.watchJiraIssue",
         "permission": "jira_watchJiraIssue",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.createJiraProject",
         "permission": "jira_createJiraProject",
-        "effect": "deny",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.deleteJiraComment",
         "permission": "jira_deleteJiraComment",
-        "effect": "deny",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.deleteJiraIssue",
         "permission": "jira_deleteJiraIssue",
-        "effect": "deny",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.deleteJiraIssueAttachment",
         "permission": "jira_deleteJiraIssueAttachment",
-        "effect": "deny",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.editJiraEntityProperty",
         "permission": "jira_editJiraEntityProperty",
-        "effect": "deny",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.updateJiraProject",
         "permission": "jira_updateJiraProject",
-        "effect": "deny",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "jira.updateJiraScreen",
         "permission": "jira_updateJiraScreen",
-        "effect": "deny",
+        "effect": "allow",
         "readOnly": false
       }
     ],

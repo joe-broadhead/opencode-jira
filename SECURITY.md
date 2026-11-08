@@ -39,11 +39,20 @@ OpenCode project.
   chat only: that link is a bearer credential for the file.
 - No tool in the Jira set sends data to Atlassian's team, so there is no feedback tool to deny here. That was checked,
   not skipped.
-- Seven tools are denied by default, and six of them are also not granted by the plugin's pinned request, so Atlassian
-  never loads them: the three permanent deletes, the three project and screen settings, and the opaque entity-property
-  writer. No admin can add that scope to this client: a new release of the plugin would have to request it, an admin
-  would have to enable the permission group, and a rule in an agent's own `permissions` would still keep it asking. An
-  `ask` rule alone turns back only `jira_editJiraEntityProperty`, which the grant covers.
+- **Every Jira tool is allowed by default**, so an agent can create or edit a work item, transition it, comment, log
+  time, move or close a sprint, release a version, upload an attachment, and mint a signed attachment URL without a
+  prompt. Two of those reach people without any further step: every write can email watchers, the assignee, the reporter
+  and anyone mentioned, and `jira_manageJiraSprint` can close a sprint and move its incomplete work.
+  `jira_downloadJiraIssueAttachment` returns a short-lived signed URL, which is a bearer credential for the file.
+- **One line restricts it.** Set `"access": "ask-changes"` in the plugin options and every change asks first, or
+  `"access": "read-only"` and every change is denied. A rule in an agent's own `permissions` restricts one agent, and a
+  `deny` in the top-level `permissions` restricts every agent. The README's
+  [Permissions](https://github.com/joe-broadhead/opencode-jira/blob/HEAD/README.md#permissions) has the three blocks.
+- Six of the seven destructive tools are also not granted by the plugin's pinned request, so Atlassian never loads
+  them: the three permanent deletes, the three project and screen settings, and the opaque entity-property writer. No
+  admin can add that scope to this client: a new release of the plugin would have to request it and an admin would have
+  to enable the permission group. `jira_editJiraEntityProperty` sits in the write group, which the grant covers, so the
+  default `access: "all"` leaves it reachable; a `deny` rule keeps it off.
 
 ## Permissions
 
@@ -59,9 +68,10 @@ What the model can do in Jira is limited by these layers, in this order:
    permission rules as the only lock. `/jira-status` names which your entry does. An
    organisation admin can turn Atlassian MCP off for the whole organisation, refuse this client's origin, or refuse
    this machine by IP.
-2. **Default permission rules.** Every Jira tool asks before it runs, except Jira's read tools listed in
-   `src/jira-tools.ts`, which run without a prompt. Seven tools are denied, and a deny also hides the tool. Some changes
-   that ask still email people: every write can reach watchers, the assignee, the reporter and anyone mentioned, and
+2. **Default permission rules.** The plugin inserts one block generated from the tool table and the `access` option.
+   Its default, `all`, allows every Jira tool, reads and changes alike. `ask-changes` allows a read and asks for
+   everything else; `read-only` allows a read and denies everything else, which also hides it from the model. Some
+   changes reach people: every write can email watchers, the assignee, the reporter and anyone mentioned, and
    `jira_manageJiraSprint` can close a sprint and move its incomplete work.
 3. **Your OpenCode permissions.** Your `permissions` rules and saved "Always allow" answers override the default
    rules. A `deny` you configure always wins.
@@ -74,10 +84,11 @@ Things to know:
   commit may belong to OpenCode's shared `global` project, so an approval saved there may apply in other such folders
   too.
 - **Some agents get no default rules.** Agents defined only in your own config, and agents added by plugins that load
-  after this one, are created after the plugin inserts its rules, and agents without a base allow get none. Jira tools
-  may run there without asking. `/jira-status` names these agents and gives the fix: put the default rules it shows
-  first in that agent's own `permissions`, followed by your top-level rules for Jira tools. Do not put them in the
-  top-level `permissions`, which would loosen Explore.
+  after this one, are created after the plugin inserts its rules, and agents without a base allow get none. Under the
+  default `access: "all"` that changes nothing; under `ask-changes` or `read-only` those agents stay unrestricted.
+  `/jira-status` names them and gives the fix: put the block it shows first in that agent's own `permissions`, followed
+  by your top-level rules for Jira tools. Do not put an `ask` or an `allow` in the top-level `permissions`, which would
+  loosen Explore.
 - **Unattended runs refuse prompts.** In `opencode run`, a Jira tool that would ask is refused.
 - **The `jira_*` rule also matches other servers** whose names start with `jira_`. For their tools it only adds prompts.
 - **The rules follow the name, not the server.** When your own `mcp.servers.jira` points at another URL, status reports a
@@ -97,8 +108,9 @@ tool as a method for a script, with no model, each with a class: read, write or 
   session's, resolved before dispatch: only `allow` runs. An `ask` is refused with no prompt and no Atlassian call, and
   a `deny` is refused with no Atlassian call. A saved "Always allow" is not part of those rules and does not authorise a
   script; a script's grant is a rule in config, or a Jobs run session.
-- Making a tool a method does not make it reachable. A write's default rule asks, so a script needs an explicit
-  `allow` for its action; the seven denied tools resolve to `deny` and are refused until that deny is changed.
+- A script gets the same default. Under `access: "all"` the block allows every method, a write and the export
+  included. A session on an agent with `ask-changes` or `read-only` needs an explicit `allow` for the method's action;
+  the destructive class then resolves to `ask` or `deny` and is refused until a rule changes it.
 - OpenCode's own executor still checks an MCP call against the agent's rules, the session's rules and saved approvals.
   A session in another directory than the server answering the call runs under the serving location's agent rules: the
   README's known limits say so, and `docs/scripting.md` gives the `x-opencode-directory` header that names the location.

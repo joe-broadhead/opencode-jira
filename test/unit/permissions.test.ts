@@ -1,35 +1,53 @@
 import { describe, expect, test } from "bun:test"
-import { DENY_TOOLS, READ_TOOLS } from "../../src/jira-tools.js"
-import { defaultRules, evaluate, hasDefaultRules, insertRules, registerDefaultRules, unguardedAgents, type Rule } from "../../src/permissions.js"
+import { DESTRUCTIVE_TOOLS, EXPORT_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
+import { ACCESS, defaultRules, effectOf, evaluate, hasDefaultRules, insertRules, registerDefaultRules, unguardedAgents, type Rule } from "../../src/permissions.js"
 import { agentEditor, allow, builtInAgents, transforms, type AgentEditor, type FakeAgent } from "./fake.js"
 
-const ask: Rule = { action: "jira_*", resource: "*", effect: "ask" }
 const deny = (action: string): Rule => ({ action, resource: "*", effect: "deny" })
-const ACTIONS = ["jira_searchJiraIssuesUsingJql", "jira_getJiraIssue", "jira_createJiraIssue", "jira_deleteJiraIssue", "jira_shiny_new_tool", "jira_editJiraEntityProperty"]
+const allowAll = (action: string): Rule => ({ action, resource: "*", effect: "allow" })
+const askAll: Rule = { action: "jira_*", resource: "*", effect: "ask" }
+const ACTIONS = ["jira_searchJiraIssuesUsingJql", "jira_getJiraIssue", "jira_downloadJiraIssueAttachment", "jira_createJiraIssue", "jira_shiny_new_tool", "jira_deleteJiraIssue"]
 const effects = (rules: readonly Rule[]) => ACTIONS.map((action) => evaluate(rules, action))
 
 describe("defaultRules", () => {
-  test("ask for every Jira tool, then allow each known read, then deny the denied tools last", () => {
-    const rules = defaultRules()
-    expect(rules[0]).toEqual(ask)
-    expect(rules.slice(1, 1 + READ_TOOLS.length)).toEqual(READ_TOOLS.map((tool) => ({ action: `jira_${tool}`, resource: "*", effect: "allow" })))
-    expect(rules.slice(1 + READ_TOOLS.length)).toEqual(DENY_TOOLS.map((tool) => deny(`jira_${tool}`)))
+  // R18: every tool the plugin registers is allowed at the default, the namespace pattern included, so a tool Jira
+  // adds later is usable at once.
+  test("allow everything by default: the namespace pattern, then every tool, reads and changes alike", () => {
+    const rules = defaultRules("all")
+    expect(rules[0]).toEqual(allowAll("jira_*"))
+    expect(rules.slice(1)).toEqual([...READ_TOOLS, ...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((tool) => allowAll(`jira_${tool}`)))
+    expect(effects([allowAll("*"), ...rules])).toEqual(ACTIONS.map(() => "allow"))
   })
 
-  test("reads allow; edits of an entity property and deletes are denied; everything else asks", () => {
-    expect(effects([allow("*"), ...defaultRules()])).toEqual(["allow", "allow", "ask", "deny", "ask", "deny"])
-    expect(evaluate([allow("*"), ...defaultRules()], "jira_manageJiraSprint")).toBe("ask")
+  test("ask-changes allows a read and asks for everything else, a tool Jira adds included", () => {
+    const rules = defaultRules("ask-changes")
+    expect(rules[0]).toEqual(askAll)
+    expect(effects([allowAll("*"), ...rules])).toEqual(["allow", "allow", "ask", "ask", "ask", "ask"])
+    for (const tool of READ_TOOLS) expect(evaluate(rules, `jira_${tool}`)).toBe("allow")
+    for (const tool of [...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]) expect(evaluate(rules, `jira_${tool}`)).toBe("ask")
   })
 
-  test("the documented opt-in turns a denied tool back into an ask, never an allow", () => {
-    const optIn = { action: "jira_editJiraEntityProperty", resource: "*", effect: "ask" as const }
-    expect(evaluate([allow("*"), ...defaultRules(), optIn], "jira_editJiraEntityProperty")).toBe("ask")
+  test("read-only allows a read and denies everything else, so the destructive class is hidden", () => {
+    const rules = defaultRules("read-only")
+    expect(rules[0]).toEqual(deny("jira_*"))
+    expect(effects([allowAll("*"), ...rules])).toEqual(["allow", "allow", "deny", "deny", "deny", "deny"])
+    for (const tool of DESTRUCTIVE_TOOLS) expect(evaluate(rules, `jira_${tool}`)).toBe("deny")
+  })
+
+  test("the class decides, and the three values cover every class", () => {
+    for (const access of ACCESS) {
+      const changes = access === "all" ? "allow" : access === "ask-changes" ? "ask" : "deny"
+      expect(effectOf("getJiraIssue", access)).toBe("allow")
+      expect(effectOf("downloadJiraIssueAttachment", access)).toBe(changes)
+      expect(effectOf("createJiraIssue", access)).toBe(changes)
+      expect(effectOf("deleteJiraIssue", access)).toBe(changes)
+    }
   })
 })
 
 describe("insertRules", () => {
-  test("splices the rules right after the base allow, before the agent's own rules", () => {
-    const rules = defaultRules()
+  test.each(ACCESS)("splices the %s block right after the base allow, before the agent's own rules", (access) => {
+    const rules = defaultRules(access)
     for (const agent of builtInAgents()) {
       const before = agent.permissions.slice()
       expect(insertRules(agent.permissions, rules)).toBe(true)
@@ -47,8 +65,8 @@ describe("insertRules", () => {
     expect(insertRules(later, defaultRules())).toBe(false)
   })
 
-  test("only the whole block counts: the ask rule alone is not the block, so the block is added", () => {
-    const own = [allow("*"), { ...ask }, allow("jira_createJiraIssue")]
+  test("only the whole block counts: the namespace rule alone is not the block, so the block is added", () => {
+    const own = [allow("*"), { ...askAll }, allow("jira_createJiraIssue")]
     expect(hasDefaultRules(own)).toBe(false)
     expect(insertRules(own, defaultRules())).toBe(true)
     expect(own.slice(1, 1 + defaultRules().length)).toEqual(defaultRules())
@@ -67,14 +85,14 @@ describe("insertRules", () => {
     insertRules(explore.permissions, defaultRules())
     expect(effects(explore.permissions)).toEqual(["deny", "deny", "deny", "deny", "deny", "deny"])
     insertRules(plan.permissions, defaultRules())
-    expect(effects(plan.permissions)).toEqual(["allow", "allow", "ask", "deny", "ask", "deny"])
+    expect(effects(plan.permissions)).toEqual(ACTIONS.map(() => "allow"))
   })
 
   test("the user's rules come later and win, both ways", () => {
     const permissions = [allow("*")]
     insertRules(permissions, defaultRules())
-    permissions.push(allow("jira_createJiraIssue"), { action: "jira_deleteJiraIssue", resource: "*", effect: "ask" }, deny("jira_search*"))
-    expect(effects(permissions)).toEqual(["deny", "allow", "allow", "ask", "ask", "deny"])
+    permissions.push(deny("jira_createJiraIssue"), { action: "jira_deleteJiraIssue", resource: "*", effect: "ask" }, deny("jira_search*"))
+    expect(effects(permissions)).toEqual(["deny", "allow", "allow", "deny", "allow", "ask"])
   })
 })
 
@@ -97,29 +115,30 @@ describe("registerDefaultRules", () => {
     await registerDefaultRules({ transform }, defaultRules(), (problem) => problems.push(problem))
     const broken = { ...agentEditor([]), list: () => { throw new Error("boom") } }
     expect(() => run(broken)).not.toThrow()
-    expect(problems).toEqual([
-      "RULES_NOT_ADDED: Jira's default permission rules could not be added (boom), so Jira tools may run without asking. Next step: Restart OpenCode.",
-    ])
+    expect(problems).toEqual(["RULES_NOT_ADDED: Jira's default permission rules could not be added (boom). Next step: Restart OpenCode."])
   })
 })
 
 describe("unguardedAgents", () => {
-  test("names agents with a base allow, no block, and rules that would let a new Jira tool run", () => {
-    const guarded = [allow("*"), ...defaultRules()]
+  test("names no agent under access all, where the block restates the base allow", () => {
+    const agents = [{ id: "reviewer", permissions: [allow("*")] }]
+    expect(unguardedAgents(agents)).toEqual([])
+    expect(unguardedAgents(agents, "all")).toEqual([])
+  })
+
+  test("names agents with a base allow and no block once the access restricts", () => {
+    const guarded = [allow("*"), ...defaultRules("read-only")]
     const agents = [
       { id: "build", permissions: guarded },
       { id: "reviewer", permissions: [allow("*")] },
-      { id: "fixed", permissions: [allow("*"), ...defaultRules(), allow("jira_createJiraIssue")] },
-      { id: "other-plugin-first", permissions: [allow("*"), allow("github_*"), ...defaultRules()] },
-      { id: "block-before-base", permissions: [...defaultRules(), allow("*")] },
-      { id: "ask-rule-only", permissions: [allow("*"), { ...ask }] },
-      { id: "locked", permissions: [allow("*"), deny("*")] },
-      { id: "denies-jira", permissions: [allow("*"), deny("jira_*")] },
+      { id: "fixed", permissions: [allow("*"), ...defaultRules("read-only"), allow("jira_createJiraIssue")] },
+      { id: "other-plugin-first", permissions: [allow("*"), allow("github_*"), ...defaultRules("read-only")] },
+      { id: "block-before-base", permissions: [...defaultRules("read-only"), allow("*")] },
       // No base allow: the plugin adds no rules there, and nothing needs fixing.
       { id: "own-allow-no-base", permissions: [allow("jira_*")] },
     ]
-    expect(unguardedAgents(agents)).toEqual(["reviewer", "block-before-base"])
-    expect(hasDefaultRules(guarded)).toBe(true)
-    expect(hasDefaultRules([...defaultRules()])).toBe(false)
+    expect(unguardedAgents(agents, "read-only")).toEqual(["reviewer", "block-before-base"])
+    expect(hasDefaultRules(guarded, "read-only")).toBe(true)
+    expect(hasDefaultRules([...defaultRules("read-only")], "read-only")).toBe(false)
   })
 })

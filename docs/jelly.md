@@ -25,31 +25,30 @@ family's own drawing, not Atlassian's logo, shape or brand colour.
 
 ## Tools and permissions
 
-54 tools are declared (33 read-only), every tool in `src/jira-tools.ts`: each read tool as read-only with `allow`, each
-write tool with `ask`, and each denied tool with `deny`. Jelly's agents have no base "allow everything" rule, so this
-plugin's own default rules, which it puts after that rule, never reach them. Jelly writes each declared `ask` or `deny`
-as that tool's default instead (the person's own choice replaces it), and denies a read-only helper every tool not marked
-`readOnly`. A declared `allow` changes nothing in Jelly.
+54 tools are declared (32 read-only), every tool in `src/jira-tools.ts`: each tool with `allow`, and only the reads
+marked `readOnly`, which is what a read-only helper is allowed to run. Jelly's agents have no base "allow everything"
+rule, so this plugin's own default rules, which it puts after that rule, never reach them; the declaration is the whole
+posture. A declared `allow` changes nothing in Jelly, which already runs what Jelly's own settings permit.
 
-- Ask, the 14 changes: `jira_addOrEditJiraIssueComment`, `jira_addOrEditJiraIssueWorklog`,
-  `jira_convertJiraIssueHierarchy`, `jira_createJiraBoard`, `jira_createJiraIssue`, `jira_createJiraIssueLink`,
-  `jira_createJiraIssueRemoteIssueLink`, `jira_editJiraIssue`, `jira_manageJiraProjectVersion`,
-  `jira_manageJiraProjectVersionRelatedWork`, `jira_manageJiraSprint`, `jira_transitionJiraIssue`,
-  `jira_uploadAttachmentToJiraIssue` and `jira_watchJiraIssue`. Every one can email watchers, the assignee, the
-  reporter and anyone the text mentions.
-- Off: `jira_deleteJiraIssue`, `jira_deleteJiraComment` and `jira_deleteJiraIssueAttachment` (permanent, with no
-  history to restore), `jira_createJiraProject`, `jira_updateJiraProject` and `jira_updateJiraScreen` (a new space, or
-  settings and fields that reach everyone in a project), and `jira_editJiraEntityProperty` (opaque state other Jira
-  apps read).
-- Everything else runs, as the plugin's own rules let it.
+Every declared tool is allowed, so nothing is switched off for you:
+
+- The attachment export, `jira_downloadJiraIssueAttachment`, mints a short-lived signed URL and a curl command, which is
+  a file credential.
+- The permanent deletes: `jira_deleteJiraIssue`, `jira_deleteJiraComment` and `jira_deleteJiraIssueAttachment`, with no
+  history to restore.
+- The project and screen settings: `jira_createJiraProject`, `jira_updateJiraProject` and `jira_updateJiraScreen`, a new
+  space, or settings and fields that reach everyone in a project.
+- `jira_editJiraEntityProperty`, opaque state other Jira apps read.
+- The 14 writes, each of which can email watchers, the assignee, the reporter and anyone the text mentions.
 
 Three of the declared reads, `jira_getJiraWorkflows`, `jira_getJiraWorkflowEditorLink` and `jira_getJiraScreen`, are
 normally absent: the sign-in asks for no `manage_jira` scope, so Atlassian never loads them.
 
-A tool Atlassian adds later, a write included, is not declared, so in Jelly it is not asked about: it runs without asking,
-even if it changes something, until a new version of this plugin declares it. Atlassian says it adds tools over time,
-write actions included. A Jelly admin can set such a tool to ask. Keep `jelly.tools` in step with `src/jira-tools.ts`;
-`test/unit/jelly.test.ts` checks the list against it, and each declared effect against the plugin's own default rules.
+A tool Atlassian adds later, a write included, is not declared, so in Jelly it runs with the plugin's own default:
+allowed, even if it changes something, until a new version of this plugin declares it. Atlassian says it adds tools over
+time, write actions included. A Jelly admin can set such a tool to ask. Keep `jelly.tools` in step with
+`src/jira-tools.ts`; `test/unit/jelly.test.ts` checks the list against it, and each declared effect against the plugin's
+own default rules.
 
 ## Skills
 

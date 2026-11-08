@@ -6,7 +6,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { DENY_TOOLS, PARAMETERS, READ_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
+import { DESTRUCTIVE_TOOLS, EXPORT_TOOLS, PARAMETERS, READ_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
 
 const SCRIPT = fileURLToPath(new URL("../../scripts/check-jira-tools.mjs", import.meta.url))
 const TOOLS = fileURLToPath(new URL("../../src/jira-tools.ts", import.meta.url))
@@ -14,7 +14,7 @@ const FIXTURE = fileURLToPath(new URL("./live-tools.json", import.meta.url))
 const dir = mkdtempSync(join(tmpdir(), "jira-drift-"))
 afterAll(() => rmSync(dir, { recursive: true, force: true }))
 
-const ALL = [...READ_TOOLS, ...WRITE_TOOLS, ...DENY_TOOLS]
+const ALL = [...READ_TOOLS, ...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]
 const recorded = () => (JSON.parse(readFileSync(FIXTURE, "utf8")) as { tools: { name: string }[] }).tools
 /** One tool in OpenCode's form, with a schema. */
 const opencode = (name: string, properties: Record<string, unknown> = { query: { type: "string" } }, required = ["query"], description = `Jira ${name}`) => ({
@@ -50,10 +50,9 @@ describe("npm run drift", () => {
     for (const entries of Object.values(PARAMETERS)) for (const entry of entries) expect(entry).toMatch(/^[a-z][a-z0-9_]*\*?:[a-z<>|]+$/)
   })
 
-  test("the recorded list holds exactly the known tools, and shows no drift", () => {
+  test("the fixture is the raw tools/list form the guide names, and shows no drift", () => {
     expect(recorded().map((tool) => tool.name).sort()).toEqual([...ALL].sort())
     const { code, out } = drift({ tools: recorded() }, ["--strict"])
-    expect(out).toContain("Not checked: this list gives no input schemas")
     expect([code, out.trim().split("\n").at(-1)]).toEqual([0, "No drift."])
   })
 

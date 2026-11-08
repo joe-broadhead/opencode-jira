@@ -104,7 +104,7 @@ describe("TUI plugin", () => {
 
 describe("status view", () => {
   test("shows the server's status, the same text as /jira-status without its heading, in a large dialog", async () => {
-    const answer = status({ server: { status: "needs_auth", error: "Authorization required" }, account: { name: "Sam Okafor" }, agents: [{ id: "reviewer", permissions: [{ action: "*", resource: "*", effect: "allow" }] }] })
+    const answer = status({ server: { status: "needs_auth", error: "Authorization required" }, account: { name: "Sam Okafor" }, access: "read-only", agents: [{ id: "reviewer", permissions: [{ action: "*", resource: "*", effect: "allow" }] }] })
     const view = fake({ answer: async () => answer })
     setupView(view.context)
     await command(view.layers).run()

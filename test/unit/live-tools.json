@@ -1,221 +1,220 @@
 {
-  "source": "The captured shape of a tool list from Atlassian's MCP server: replace this file with `tools/list` from https://mcp.atlassian.com/v2/mcp?tools=all once a sign-in exists. Today it holds the provisional names and purposes from https://support.atlassian.com/atlassian-ai-gateway/docs/supported-tools/ (2026-11-05).",
-  "tools": [
-    {
-      "name": "atlassianUserInfo",
-      "description": "The current user's account information"
-    },
-    {
-      "name": "downloadJiraIssueAttachment",
-      "description": "Returns a short-lived signed URL and a curl command, i.e. a secret: give it only to the user in chat"
-    },
-    {
-      "name": "getAccessibleAtlassianResources",
-      "description": "Every site and app the user can reach, with cloudIds; required before any other call"
-    },
-    {
-      "name": "getJiraBoardConfig",
-      "description": "getJiraBoardConfig"
-    },
-    {
-      "name": "getJiraBoardIssueData",
-      "description": "The count/JQL tool for 'how many'"
-    },
-    {
-      "name": "getJiraBoardSprintData",
-      "description": "Defaults to the active sprint"
-    },
-    {
-      "name": "getJiraCurrentUser",
-      "description": "Second account read; prefer atlassianUserInfo"
-    },
-    {
-      "name": "getJiraEntityProperty",
-      "description": "Integration metadata"
-    },
-    {
-      "name": "getJiraIssue",
-      "description": "The main read"
-    },
-    {
-      "name": "getJiraIssueTypeMetaWithFields",
-      "description": "Needed before a create"
-    },
-    {
-      "name": "getJiraProjectVersionRelatedWork",
-      "description": "getJiraProjectVersionRelatedWork"
-    },
-    {
-      "name": "getJiraProjectVersions",
-      "description": "getJiraProjectVersions"
-    },
-    {
-      "name": "getJiraScreen",
-      "description": "Read-only despite its group"
-    },
-    {
-      "name": "getJiraUser",
-      "description": "Profile; may include email"
-    },
-    {
-      "name": "getJiraWorkflowEditorLink",
-      "description": "Returns a link; nothing is applied"
-    },
-    {
-      "name": "getJiraWorkflows",
-      "description": "Read-only despite its group"
-    },
-    {
-      "name": "listJiraBoardSprints",
-      "description": "listJiraBoardSprints"
-    },
-    {
-      "name": "listJiraBoards",
-      "description": "listJiraBoards"
-    },
-    {
-      "name": "listJiraDashboards",
-      "description": "listJiraDashboards"
-    },
-    {
-      "name": "listJiraFilters",
-      "description": "listJiraFilters"
-    },
-    {
-      "name": "listJiraIssueAssignableUsers",
-      "description": "Team roster"
-    },
-    {
-      "name": "listJiraIssueChangelogs",
-      "description": "Who changed what"
-    },
-    {
-      "name": "listJiraIssueComments",
-      "description": "Free text by colleagues"
-    },
-    {
-      "name": "listJiraIssueLinkTypes",
-      "description": "listJiraIssueLinkTypes"
-    },
-    {
-      "name": "listJiraIssueRemoteIssueLinks",
-      "description": "listJiraIssueRemoteIssueLinks"
-    },
-    {
-      "name": "listJiraIssueTransitions",
-      "description": "Needed before a transition"
-    },
-    {
-      "name": "listJiraIssueWorklogs",
-      "description": "Colleagues' logged hours"
-    },
-    {
-      "name": "listJiraProjectComponents",
-      "description": "listJiraProjectComponents"
-    },
-    {
-      "name": "listJiraProjectIssueTypesMetadata",
-      "description": "listJiraProjectIssueTypesMetadata"
-    },
-    {
-      "name": "listJiraProjects",
-      "description": "'Space' is Atlassian's word for project"
-    },
-    {
-      "name": "listJiraStatuses",
-      "description": "listJiraStatuses"
-    },
-    {
-      "name": "lookupJiraAccountId",
-      "description": "Resolves a person to an account ID; may return email"
-    },
-    {
-      "name": "searchJiraIssuesUsingJql",
-      "description": "Primary; prefer this over Rovo semantic search, which spends credits"
-    },
-    {
-      "name": "addOrEditJiraIssueComment",
-      "description": "addOrEditJiraIssueComment"
-    },
-    {
-      "name": "addOrEditJiraIssueWorklog",
-      "description": "addOrEditJiraIssueWorklog"
-    },
-    {
-      "name": "convertJiraIssueHierarchy",
-      "description": "convertJiraIssueHierarchy"
-    },
-    {
-      "name": "createJiraBoard",
-      "description": "createJiraBoard"
-    },
-    {
-      "name": "createJiraIssue",
-      "description": "createJiraIssue"
-    },
-    {
-      "name": "createJiraIssueLink",
-      "description": "createJiraIssueLink"
-    },
-    {
-      "name": "createJiraIssueRemoteIssueLink",
-      "description": "createJiraIssueRemoteIssueLink"
-    },
-    {
-      "name": "editJiraIssue",
-      "description": "editJiraIssue"
-    },
-    {
-      "name": "manageJiraProjectVersion",
-      "description": "manageJiraProjectVersion"
-    },
-    {
-      "name": "manageJiraProjectVersionRelatedWork",
-      "description": "manageJiraProjectVersionRelatedWork"
-    },
-    {
-      "name": "manageJiraSprint",
-      "description": "manageJiraSprint"
-    },
-    {
-      "name": "transitionJiraIssue",
-      "description": "transitionJiraIssue"
-    },
-    {
-      "name": "uploadAttachmentToJiraIssue",
-      "description": "uploadAttachmentToJiraIssue"
-    },
-    {
-      "name": "watchJiraIssue",
-      "description": "watchJiraIssue"
-    },
-    {
-      "name": "createJiraProject",
-      "description": "Creates a space: a new organisation-visible container with its own permissions and schemes. Administration, not issue work"
-    },
-    {
-      "name": "deleteJiraComment",
-      "description": "Permanently delete a comment. Cannot be undone"
-    },
-    {
-      "name": "deleteJiraIssue",
-      "description": "Permanently delete an issue. Cannot be undone"
-    },
-    {
-      "name": "deleteJiraIssueAttachment",
-      "description": "Permanently delete an attachment. Cannot be undone"
-    },
-    {
-      "name": "editJiraEntityProperty",
-      "description": "Writes opaque key/value state other Jira apps read, and can target a user. Judgement call: flagged in DESIGN D5"
-    },
-    {
-      "name": "updateJiraProject",
-      "description": "Updates a space's settings for everyone in it"
-    },
-    {
-      "name": "updateJiraScreen",
-      "description": "Changes a company-managed screen's fields for everyone in the project, so it changes what others can see and edit. Has a plan-then-commit gate"
-    }
-  ]
+ "tools": [
+  {
+   "name": "atlassianUserInfo",
+   "description": "The current user's account information"
+  },
+  {
+   "name": "downloadJiraIssueAttachment",
+   "description": "Returns a short-lived signed URL and a curl command, i.e. a secret: give it only to the user in chat"
+  },
+  {
+   "name": "getAccessibleAtlassianResources",
+   "description": "Every site and app the user can reach, with cloudIds; required before any other call"
+  },
+  {
+   "name": "getJiraBoardConfig",
+   "description": "getJiraBoardConfig"
+  },
+  {
+   "name": "getJiraBoardIssueData",
+   "description": "The count/JQL tool for 'how many'"
+  },
+  {
+   "name": "getJiraBoardSprintData",
+   "description": "Defaults to the active sprint"
+  },
+  {
+   "name": "getJiraCurrentUser",
+   "description": "Second account read; prefer atlassianUserInfo"
+  },
+  {
+   "name": "getJiraEntityProperty",
+   "description": "Integration metadata"
+  },
+  {
+   "name": "getJiraIssue",
+   "description": "The main read"
+  },
+  {
+   "name": "getJiraIssueTypeMetaWithFields",
+   "description": "Needed before a create"
+  },
+  {
+   "name": "getJiraProjectVersionRelatedWork",
+   "description": "getJiraProjectVersionRelatedWork"
+  },
+  {
+   "name": "getJiraProjectVersions",
+   "description": "getJiraProjectVersions"
+  },
+  {
+   "name": "getJiraScreen",
+   "description": "Read-only despite its group"
+  },
+  {
+   "name": "getJiraUser",
+   "description": "Profile; may include email"
+  },
+  {
+   "name": "getJiraWorkflowEditorLink",
+   "description": "Returns a link; nothing is applied"
+  },
+  {
+   "name": "getJiraWorkflows",
+   "description": "Read-only despite its group"
+  },
+  {
+   "name": "listJiraBoardSprints",
+   "description": "listJiraBoardSprints"
+  },
+  {
+   "name": "listJiraBoards",
+   "description": "listJiraBoards"
+  },
+  {
+   "name": "listJiraDashboards",
+   "description": "listJiraDashboards"
+  },
+  {
+   "name": "listJiraFilters",
+   "description": "listJiraFilters"
+  },
+  {
+   "name": "listJiraIssueAssignableUsers",
+   "description": "Team roster"
+  },
+  {
+   "name": "listJiraIssueChangelogs",
+   "description": "Who changed what"
+  },
+  {
+   "name": "listJiraIssueComments",
+   "description": "Free text by colleagues"
+  },
+  {
+   "name": "listJiraIssueLinkTypes",
+   "description": "listJiraIssueLinkTypes"
+  },
+  {
+   "name": "listJiraIssueRemoteIssueLinks",
+   "description": "listJiraIssueRemoteIssueLinks"
+  },
+  {
+   "name": "listJiraIssueTransitions",
+   "description": "Needed before a transition"
+  },
+  {
+   "name": "listJiraIssueWorklogs",
+   "description": "Colleagues' logged hours"
+  },
+  {
+   "name": "listJiraProjectComponents",
+   "description": "listJiraProjectComponents"
+  },
+  {
+   "name": "listJiraProjectIssueTypesMetadata",
+   "description": "listJiraProjectIssueTypesMetadata"
+  },
+  {
+   "name": "listJiraProjects",
+   "description": "'Space' is Atlassian's word for project"
+  },
+  {
+   "name": "listJiraStatuses",
+   "description": "listJiraStatuses"
+  },
+  {
+   "name": "lookupJiraAccountId",
+   "description": "Resolves a person to an account ID; may return email"
+  },
+  {
+   "name": "searchJiraIssuesUsingJql",
+   "description": "Primary; prefer this over Rovo semantic search, which spends credits"
+  },
+  {
+   "name": "addOrEditJiraIssueComment",
+   "description": "addOrEditJiraIssueComment"
+  },
+  {
+   "name": "addOrEditJiraIssueWorklog",
+   "description": "addOrEditJiraIssueWorklog"
+  },
+  {
+   "name": "convertJiraIssueHierarchy",
+   "description": "convertJiraIssueHierarchy"
+  },
+  {
+   "name": "createJiraBoard",
+   "description": "createJiraBoard"
+  },
+  {
+   "name": "createJiraIssue",
+   "description": "createJiraIssue"
+  },
+  {
+   "name": "createJiraIssueLink",
+   "description": "createJiraIssueLink"
+  },
+  {
+   "name": "createJiraIssueRemoteIssueLink",
+   "description": "createJiraIssueRemoteIssueLink"
+  },
+  {
+   "name": "editJiraIssue",
+   "description": "editJiraIssue"
+  },
+  {
+   "name": "manageJiraProjectVersion",
+   "description": "manageJiraProjectVersion"
+  },
+  {
+   "name": "manageJiraProjectVersionRelatedWork",
+   "description": "manageJiraProjectVersionRelatedWork"
+  },
+  {
+   "name": "manageJiraSprint",
+   "description": "manageJiraSprint"
+  },
+  {
+   "name": "transitionJiraIssue",
+   "description": "transitionJiraIssue"
+  },
+  {
+   "name": "uploadAttachmentToJiraIssue",
+   "description": "uploadAttachmentToJiraIssue"
+  },
+  {
+   "name": "watchJiraIssue",
+   "description": "watchJiraIssue"
+  },
+  {
+   "name": "createJiraProject",
+   "description": "Creates a space: a new organisation-visible container with its own permissions and schemes. Administration, not issue work"
+  },
+  {
+   "name": "deleteJiraComment",
+   "description": "Permanently delete a comment. Cannot be undone"
+  },
+  {
+   "name": "deleteJiraIssue",
+   "description": "Permanently delete an issue. Cannot be undone"
+  },
+  {
+   "name": "deleteJiraIssueAttachment",
+   "description": "Permanently delete an attachment. Cannot be undone"
+  },
+  {
+   "name": "editJiraEntityProperty",
+   "description": "Writes opaque key/value state other Jira apps read, and can target a user. Judgement call: flagged in DESIGN D5"
+  },
+  {
+   "name": "updateJiraProject",
+   "description": "Updates a space's settings for everyone in it"
+  },
+  {
+   "name": "updateJiraScreen",
+   "description": "Changes a company-managed screen's fields for everyone in the project, so it changes what others can see and edit. Has a plan-then-commit gate"
+  }
+ ]
 }

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
 import { DISPLAY_NAME, SERVER_NAME } from "../../src/constants.js"
-import { DENY_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
+import { DESTRUCTIVE_TOOLS, EXPORT_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
 import { defaultRules, evaluate } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
 
@@ -29,12 +29,11 @@ const { jelly } = pkg
 const byPermission = new Map(jelly.tools.map((tool) => [tool.permission, tool]))
 
 describe("the jelly declaration", () => {
-  test("declares every known tool once: reads that run, writes that ask, and the seven denied tools off", () => {
+  test("declares every known tool once, every one allowed, and marks the reads read-only", () => {
     for (const tool of READ_TOOLS) expect(byPermission.get(`jira_${tool}`)).toMatchObject({ effect: "allow", readOnly: true })
-    for (const tool of WRITE_TOOLS) expect(byPermission.get(`jira_${tool}`)).toMatchObject({ effect: "ask", readOnly: false })
-    for (const tool of DENY_TOOLS) expect(byPermission.get(`jira_${tool}`)).toMatchObject({ effect: "deny", readOnly: false })
-    expect(jelly.tools).toHaveLength(READ_TOOLS.length + WRITE_TOOLS.length + DENY_TOOLS.length)
-    expect([...byPermission.keys()].sort()).toEqual([...READ_TOOLS, ...WRITE_TOOLS, ...DENY_TOOLS].map((tool) => `jira_${tool}`).sort())
+    for (const tool of [...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]) expect(byPermission.get(`jira_${tool}`)).toMatchObject({ effect: "allow", readOnly: false })
+    expect(jelly.tools).toHaveLength(READ_TOOLS.length + EXPORT_TOOLS.length + WRITE_TOOLS.length + DESTRUCTIVE_TOOLS.length)
+    expect([...byPermission.keys()].sort()).toEqual([...READ_TOOLS, ...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((tool) => `jira_${tool}`).sort())
   })
 
   test("each declared effect is what the plugin's own default rules decide for that tool", () => {

@@ -9,8 +9,8 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
 
 - **Public API only.** Use only the public `@opencode/plugin` 2.2.3 API. `opencode.host` in `package.json` and
   `SUPPORTED_HOST` in `src/constants.ts` both say exactly `>=2.2.3 <2.3.0`, never `^2.2.3`. `TESTED_HOSTS` in
-  `src/constants.ts` is the one list of tested releases (2.2.3, 2.2.4 and 2.2.5): status calls only those tested, and
-  the host and pack stages and CI run on each. Inside the range an untested release still starts.
+  `src/constants.ts` is the one list of tested releases (2.2.3, 2.2.4, 2.2.5 and 2.2.6): status calls only those tested,
+  and the host and pack stages and CI run on each. Inside the range an untested release, such as 2.2.99, still starts.
 - **Greenfield.** No legacy, migration code, compatibility shim, dual path or deprecated alias, and nothing dead.
   Delete rather than deprecate.
 - **No peers, no runtime dependencies, no lifecycle scripts.** `@opencode/plugin`, `@opencode/sdk` and
@@ -31,27 +31,33 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
 - **Adoption compares the query.** `?tools=all` decides which tool list the server sends, so `sameServer` compares
   origin, path and query. A plain `/v2/mcp`, a v1 URL, another origin or a local command is a conflict. Of a user's entry
   the plugin reads only its type, URL and whether `oauth` is `false`, never its `headers`.
-- **Default rules, not hooks.** Permissions come from rules inserted through `ctx.agent.transform` directly after each
-  agent's base allow. A stricter agent is never weakened. An agent counts as guarded only with the whole block after
-  its base allow. Agents that miss the rules are named in status with the per-agent fix, never patched, and the fix
-  never goes in the top-level `permissions`.
+- **Default rules, not hooks.** Permissions come from one block, `defaultRules(access)`, inserted through
+  `ctx.agent.transform` directly after each agent's base allow. Every tool is allowed by default: `access` is `all`,
+  `ask-changes` or `read-only`, and the tool table's classes decide what the last two restrict. A stricter agent is
+  never weakened. An agent counts as guarded only with the whole block after its base allow. Agents that miss the
+  rules are named in status with the per-agent fix, under the values that restrict, never patched, and the fix never
+  goes in the top-level `permissions`.
 - **Transforms are cheap, synchronous and never throw.** Record failures for status instead.
-- **Errors** read `CODE: What happened. Next step: What to do.`, built by `jiraError` or `errorText`. Codes have no
-  service prefix; shared failures use the shared names (`HOST_UNTESTED`, `OPTIONS_INVALID`, `STATUS_UNAVAILABLE`,
-  `SKILLS_INVALID`).
+- **Errors** read `CODE: What happened. Next step: What to do.`, built by `jiraError`, `errorText` or `codeText`.
+  `CODES` in `src/constants.ts` is the one table: the helpers take its `PluginCode`, so a code outside it does not
+  compile, and the README's `Errors` table is checked equal to it in both directions. Codes have no service prefix;
+  shared failures use the shared names (`HOST_UNTESTED`, `OPTIONS_INVALID`, `STATUS_UNAVAILABLE`, `SKILLS_INVALID`).
 - **Status.** `src/status.ts` builds one model for `/jira-status`, the `/jira` dialog and the status RPC. The RPC keeps
   the fields every plugin of this family shares, `version`, `host` (`version`, `range`, `tested`), `state`,
-  `unguardedAgents` and `nextStep`, under those names. Its `Sites` row is between `Access` and `Tools`. It never shows
+  `unguardedAgents` and `nextStep`, under those names. It reports the `access` value and the destructive class, and
+  names agents missing the block only under the values that restrict. Its `Sites` row is between `Access` and `Tools`. It never shows
   OpenCode's text for a needed sign-in, cuts a failure's reason to one line of 160 characters with `src/redact.ts` (no
   credentials, URL queries or tokens), and names at most 20 unknown tools, plain names only. A status it cannot read is
   the declared RPC error `unavailable`, with a next step. Status makes no Atlassian call: the account name and the site
   names come from the user's own first calls, captured in `src/account.ts` and kept in memory only.
 - **`src/jira-tools.ts` is the one record of Jira's tools**, and has no runtime imports. Everything else derives from
-  it; `jelly.tools` and the skills are checked against it. Its names come from Atlassian's docs and `PARAMETERS` is
-  empty until a tool list from a signed-in server is recorded: reconciling is a change to that file,
-  `test/unit/jira-tools.json`, `jelly.tools` and the skills, which `npm run drift` guides. `NOT_GRANTED_TOOLS` is the
-  three `manage_jira` reads the scope does not grant. `src/constants.ts` has no imports at all: `scripts/check.mjs`
-  loads it with Node's type stripping.
+  it; `jelly.tools`, the skills and the default rules are checked against it. Its names come from Atlassian's docs, and
+  `PARAMETERS` is empty until a tool list from a signed-in server is recorded. `test/unit/live-tools.json` is a raw
+  `tools/list` response (`{ "tools": [ { "name", "description", "inputSchema"?, "annotations"? } ] }`) holding the
+  published names and descriptions; replacing it with a saved one is the whole reconcile, and the drift test names each
+  difference. `npm run drift -- <saved.json>` reports the rest. `NOT_GRANTED_TOOLS` is the three `manage_jira` reads the
+  scope does not grant. `src/constants.ts` has no imports at all: `scripts/check.mjs` loads it with Node's type
+  stripping.
 - **Work items are other people's words and data.** Tests, fixtures, docs and skills use only invented people,
   projects and keys. Status shows no email address, account id, cloud id or avatar URL. The skills label Jira content as
   data and never as instructions, say whom a change emails before it asks, and leave every decision to the user.
@@ -68,10 +74,10 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
 - **TypeScript.** No enums, namespaces or parameter properties. `import type` for types, `.js` in relative imports.
 - **The tools RPC.** `src/host/tools-rpc.ts` is a copy of a module shared by several plugins. Change only its block
   between the `PLUGIN-SPECIFIC` markers here; change the rest in the shared copy first. Its methods are every known tool
-  in `src/jira-tools.ts`, by exact name and with its class, and never an unknown tool. A write, a denied tool or a
-  scope-withheld read is a method but runs only on a resolved `allow`; the withheld reads are unavailable because
-  Atlassian never lists them. Keep the RPC id `jira.issues.tools` and its method names stable: scripts call them by
-  name.
+  in `src/jira-tools.ts`, by exact name and with its class, and never an unknown tool. A write, a change of the
+  destructive class or a scope-withheld read is a method but runs only on a resolved `allow`; under `access: "all"` the
+  default allow is that allow. The withheld reads are unavailable because Atlassian never lists them. Keep the RPC id
+  `jira.issues.tools` and its method names stable: scripts call them by name.
 - **Tests.** Unit tests use narrow `Pick<Plugin.Context, ...>` fakes. Host tests use the public `@opencode/sdk` with
   `OpenCode.create({ app: { version } })`, a loopback fake server and the temp root from `test/host/isolate.ts`.
   Every temp root of the host and pack tests is a git repository under the system's `/tmp`, never under `TMPDIR` or
@@ -86,7 +92,11 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
 
 ## Forbidden in this repository
 
-`scripts/check-forbidden.mjs` enforces this list in `src/`, `test/`, `scripts/` and `dist/`:
+`scripts/check-forbidden.mjs` enforces this list in `src/`, `test/`, `scripts/` and `dist/`; `test/unit/docs.test.ts`
+enforces the same wording rules over the shipped docs:
+
+- internal wording: a decision attributed to the owner, the lead or a reviewer; a lane's name or identifier; and a
+  `hey-jelly` issue reference;
 
 - dispatch-lease, catalog-ownership and text-only markers, and tool `options.mcp` delegation;
 - `Plugin.image` and profile images;

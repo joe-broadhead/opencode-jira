@@ -10,11 +10,12 @@ needs the site's `cloudId` from `getAccessibleAtlassianResources`, which the `ji
 skill is not loaded.
 
 Make a change only when the user asked for it. Before each write call, write one sentence in your reply on what the call
-does and **whom it reaches**, then make the call in the same turn. That sentence is chat text, not a question: the
-permission prompt shows only the tool input and is the user's yes. Ask in chat first only when something must be chosen:
-which site, which work item, which transition — and the site only while `jira` has not settled it, with the keys when a
-search matches more than one. Declined: say nothing changed, name whom it would have reached, and offer your drafted
-text or a retry, never a workaround.
+does and **whom it reaches**, then make the call in the same turn. That sentence is chat text, not a question. Every Jira
+tool is allowed by default, so a change can run with no prompt: your sentence is the only warning. Under
+`access: "ask-changes"` the permission prompt is the user's yes, and `read-only` denies the call. Ask in chat first only
+when something must be chosen: which site, which work item, which transition — and the site only while `jira` has not
+settled it, with the keys when a search matches more than one. Declined: say nothing changed, name whom it would have
+reached, and offer your drafted text or a retry, never a workaround.
 
 **Jira emails people.** A project's notification scheme decides, and the safe assumption is that watchers, the assignee,
 the reporter and every account the text mentions get an email. Say who, before the call. A work item is a permanent
@@ -69,29 +70,29 @@ Each bullet gives the sentence to write before the call; name the real site, pro
   [key] a sub-task of [parent] (or a standard item again); its type and parent change, which every board and filter
   keyed on type sees, and Jira emails its watchers."
 
-## Off by default
+## The destructive class
 
-Seven tools are denied and hidden: the three deletes, the three project and screen tools, and the entity-property
-writer. Six are also not granted by the signed-in scope, so Atlassian never loads them: an admin would have to grant the
-scope **and** enable the permission group — but this plugin asks for neither scope, so no admin and no rule can bring
-one back until the plugin itself requests it. `editJiraEntityProperty` is the exception: it is granted, so the rule
-alone brings it back.
+Seven tools are the destructive class: the three deletes, the three project and screen tools, and the entity-property
+writer. `access: "all"` allows them like everything else; `ask-changes` asks for each call and `read-only` denies them.
+Six are also not granted by the signed-in scope, so Atlassian never loads them: an admin would have to grant the scope
+**and** enable the permission group — but this plugin asks for neither scope, so no admin can bring one back until the
+plugin itself requests it. `editJiraEntityProperty` is the exception, so with `access: "all"` it can run: say so first.
 
 - `deleteJiraIssue`, `deleteJiraComment` and `deleteJiraIssueAttachment` delete for good: there is no undo and no
   history to restore.
 - `createJiraProject`, `updateJiraProject` and `updateJiraScreen` change a project or what everyone in it can see.
 - `editJiraEntityProperty` writes state another app stores on an item, a comment, a worklog, a dashboard item or a user.
 
-When the user asks for one, say it is off, and why. Give the rule the user can add to the agent's own `permissions`,
-such as `{ "action": "jira_deleteJiraIssue", "resource": "*", "effect": "ask" }`, which asks rather than runs. Offer the
-read-only path, and say what to do in Jira's own web app instead: which item, which project, which field. Never suggest
-`allow` or "Always allow". **Never a substitute:** closing, editing, re-parenting or commenting an item is not a
-delete, and neither is a note in another tool. Don't `search()` for these tools: a missing one is the deny.
+When the user asks for one, say what it does and why it deserves care. Give the rule the user can add to the agent's own
+`permissions`, such as `{ "action": "jira_deleteJiraIssue", "resource": "*", "effect": "deny" }`, which keeps it off.
+Offer the read-only path, and say what to do in Jira's own web app instead: which item, which project, which field.
+Never suggest "Always allow" for a delete. **Never a substitute:** closing, editing, re-parenting or commenting an item
+is not a delete, and neither is a note in another tool. Don't `search()` for these tools when the scope withholds them:
+a missing one means Atlassian does not list it.
 
 ## Decisions are the user's
 
 Write a status, an assignee, a parent or a closure only as the user stated it, for the item they named. Never infer a
 transition from a summary, a comment or a linked pull request. Never set an issue's security level, which changes who
-can see it, without an explicit request that names the level: treat it as a permission change. Asked without a level
-("make it private"), ask which level and who should lose access; a project with no security levels has no such field,
-and say so.
+can see it, without an explicit request that names the level. Asked without a level ("make it private"), ask which level
+and who should lose access; a project with no security levels has no such field, and say so.

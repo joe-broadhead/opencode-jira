@@ -86,11 +86,12 @@ runs offline, in its own temporary home, on its own port with a password. The st
 are registered, that `/connect` lists the server as "Jira", and that the status RPC answers. It then points a
 copy of the installed plugin at a local fake of Atlassian's server and calls the tools RPC as a script would.
 
-To use `opencode` binaries you already have, set `OPENCODE_BIN_2_2_3`, `OPENCODE_BIN_2_2_4` and `OPENCODE_BIN_2_2_5`:
+To use `opencode` binaries you already have, set `OPENCODE_BIN_2_2_3` through `OPENCODE_BIN_2_2_6`:
 
 ```sh
 OPENCODE_BIN_2_2_3=/path/to/opencode-2.2.3 OPENCODE_BIN_2_2_4=/path/to/opencode-2.2.4 \
-  OPENCODE_BIN_2_2_5=/path/to/opencode-2.2.5 node scripts/check.mjs pack
+  OPENCODE_BIN_2_2_5=/path/to/opencode-2.2.5 OPENCODE_BIN_2_2_6=/path/to/opencode-2.2.6 \
+  node scripts/check.mjs pack
 ```
 
 Otherwise the stage installs `@opencode/cli` with the binary for your platform (macOS or Linux, arm64 or x64), a few
@@ -100,32 +101,27 @@ CI (`.github/workflows/ci.yml`) runs `npm ci --ignore-scripts` and `npm run chec
 
 ## Jira's tools
 
-`src/jira-tools.ts` is the one record of the Jira tools the plugin knows: `READ_TOOLS` run without a prompt and are
-the tools RPC's methods, `WRITE_TOOLS` ask, `DENY_TOOLS` are off, and `PARAMETERS` holds each tool's input
-parameters. The default rules, the tools RPC, status's unknown and denied tools, the fake server in the host and pack
-tests, and the checks of `jelly.tools`, the docs and the skills all derive from it. Atlassian may add, rename or remove
+`src/jira-tools.ts` is the one record of the Jira tools the plugin knows: `READ_TOOLS`, `EXPORT_TOOLS`, `WRITE_TOOLS`
+and `DESTRUCTIVE_TOOLS` give each tool its class, and `PARAMETERS` holds each tool's input parameters. The default rules
+for every `access` value, the tools RPC's methods and classes, status's unknown and destructive tools, the fake server in
+the host and pack tests, and the checks of `jelly.tools`, the docs and the skills all derive from it. Atlassian may add, rename or remove
 tools without notice. It also loads only the tools a grant covers, so a known tool missing from one account's list is
 not drift: `NOT_GRANTED_TOOLS` names the three this plugin's scope never grants.
 
 The names and classes come from Atlassian's own list of its v2 MCP tools
 ([Supported tools](https://support.atlassian.com/atlassian-ai-gateway/docs/supported-tools/)), recorded in
-`test/unit/live-tools.json`. That page gives no input schemas or annotations, so `PARAMETERS` is empty, and the skills
-name tools without their inputs: in Code Mode each call's signature gives the model the parameter names. Once a tool
-list from a signed-in server is saved, reconciling is a data change, made with the drift check below.
+`test/unit/live-tools.json`, a raw `tools/list` response. That page gives no input schemas or annotations, so
+`PARAMETERS` is empty, and the skills name tools without their inputs: in Code Mode each call's signature gives the model
+the parameter names. Once a tool list from a signed-in server is saved, reconciling is a data change, made with the drift
+check below.
 
 ### Drift check
 
 The drift check is a manual maintainer check. It is not part of `npm run check` or CI, nothing at runtime depends on
-it, and it never calls Jira or reads a credential. Save the tool list first, by either of these:
-
-- in an OpenCode project signed in to Jira, a throwaway local plugin that writes `ctx.tool.list()`'s `jira` tools
-  (`name`, `description`, `inputSchema`) as `{ "tools": [...] }` to a file;
-- an MCP client's `tools/list` result for `https://mcp.atlassian.com/v2/mcp?tools=all`, saved as JSON, which also carries Jira's
-  annotations.
-
-A list in the research form, `{ "tools": [{ "name", "annotations", "inputs": ["name*:type", …] }] }`, works too, and
-`annotations` and `inputs` may be missing, as in `test/unit/live-tools.json`. Keep a saved list out of this
-repository, except as that fixture, which lists names and input schemas only.
+it, and it never calls Jira or reads a credential. Save the tool list first: in an MCP client, call `tools/list` on
+`https://mcp.atlassian.com/v2/mcp?tools=all` and save the whole result as JSON, `{ "tools": [ { "name", "description",
+"inputSchema"?, "annotations"? } ] }`. That is the one form this repository and the check accept; the fixture
+`test/unit/live-tools.json` is the same shape. Keep a saved list out of this repository, except as that fixture.
 
 **Check the shape first.** The list must be the flat one from `?tools=all`. If it holds `discover`, `executeRead`,
 `executeWrite` or `executeDestructive`, the URL lost its query, and the check stops with exit code 2: the plugin's table
@@ -151,21 +147,21 @@ npm run drift -- <tools.json> --strict
   error.
 
 `test/unit/live-tools.json` is the captured list, and two tests read it. The drift test runs the check on it with
-`--strict`, so `src/jira-tools.ts` must match it exactly; `test/unit/live-tools.test.ts` asserts that every tool in it
-classifies as a read, a write or a denied tool, has exactly one deciding rule with that class's effect, and is hidden
-when it is denied. **Replacing that one file with a list from a signed-in server is the whole reconcile step**: the two
-tests then fail on every name, class or effect the lists, the rules, `jelly.tools` or the skills do not cover. Keep the
-shape (`name` and `description` per tool) and a `source` line with no local path.
+`--strict`, so `src/jira-tools.ts` must match it exactly; `test/unit/live-tools.test.ts` names each difference the
+reconcile has left: a name with no class, a class the table does not have, an effect the value does not give it, or a
+deny that is not hidden. **Replacing that one file with a list from a signed-in server is the whole reconcile step**:
+the tests and `npm run drift -- <saved.json> --strict` then name every name, class, effect or parameter the table,
+`jelly.tools` or the skills do not cover. There is no count to update and no flag to clear.
 
 ### Updating the tool lists
 
 1. Run the drift check.
 2. For each name it reports, read the tool's description, schema and annotations, and check what it does.
-3. Add a tool to `READ_TOOLS` only if it never changes anything and sends nothing to anyone, because reads run
-   without a prompt and each one is also a method of the tools RPC for scripts. Add tools that change anything to
-   `WRITE_TOOLS`. A tool that deletes, changes a project, screen or workflow setting, changes who can see an item,
-   writes an entity property, or touches users goes to `DENY_TOOLS`. Leave a tool out if you are not sure: it then asks
-   before every call, and scripts cannot call it.
+3. Add a tool to `READ_TOOLS` only if it never changes anything and sends nothing to anyone. A tool that mints a
+   credential, such as a signed download URL, goes to `EXPORT_TOOLS`. Add tools that change anything to `WRITE_TOOLS`.
+   A tool that deletes permanently, changes a project, screen or workflow setting, changes who can see an item, writes
+   an entity property, or touches users goes to `DESTRUCTIVE_TOOLS`. Leave a tool out if you are not sure: it then has
+   no class, runs under the namespace pattern alone, and scripts cannot call it.
 4. Update `PARAMETERS` from the schemas, `jelly.tools` in `package.json`, and any skill text that names a changed tool.
    With parameters recorded, a skill may give a literal call such as `getJiraIssue({ … })`, and the skills test checks
    its keys against `PARAMETERS`. Run `npm run check`: the Jelly test fails if `jelly.tools` differs from the lists, the

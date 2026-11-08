@@ -1,13 +1,17 @@
 import { jiraError } from "./constants.js"
+import { ACCESS, type Access } from "./permissions.js"
 
 interface Options {
   /** Run on an OpenCode version outside the supported range, with a warning in status. */
   readonly allowUntestedHost: boolean
+  /** How much the default rules restrict: `all` allows every tool, `ask-changes` asks for a change, `read-only` denies it. */
+  readonly access: Access
 }
 
-const EXAMPLE = `"plugins": [{ "package": "@joe-broadhead/opencode-jira", "options": { "allowUntestedHost": true } }]`
+const EXAMPLE = `"plugins": [{ "package": "@joe-broadhead/opencode-jira", "options": { "access": "ask-changes" } }]`
 const ACCEPTED = {
   allowUntestedHost: "true or false (the default)",
+  access: `${ACCESS.map((value) => `"${value}"`).join(", ")}, with "all" the default`,
 } as const
 
 const invalid = (problem: string) =>
@@ -15,7 +19,7 @@ const invalid = (problem: string) =>
 
 /** Validates the plugin options from opencode.json. Every option is optional. */
 export function parseOptions(raw: unknown): Options {
-  if (raw === undefined || raw === null) return { allowUntestedHost: false }
+  if (raw === undefined || raw === null) return { allowUntestedHost: false, access: "all" }
   if (typeof raw !== "object" || Array.isArray(raw)) throw invalid(`The plugin options must be an object, found ${describe(raw)}`)
   const input = raw as Record<string, unknown>
   for (const key of Object.keys(input)) {
@@ -23,11 +27,14 @@ export function parseOptions(raw: unknown): Options {
       throw invalid(`Unknown option "${key}". Accepted options: ${Object.keys(ACCEPTED).map((name) => `"${name}"`).join(", ")}`)
     }
   }
-  const { allowUntestedHost = false } = input
+  const { allowUntestedHost = false, access = "all" } = input
   if (typeof allowUntestedHost !== "boolean") {
     throw invalid(`The option "allowUntestedHost" must be ${ACCEPTED.allowUntestedHost}, found ${describe(allowUntestedHost)}`)
   }
-  return { allowUntestedHost }
+  if (!ACCESS.includes(access as Access)) {
+    throw invalid(`The option "access" must be ${ACCEPTED.access}, found ${describe(access)}`)
+  }
+  return { allowUntestedHost, access: access as Access }
 }
 
 const describe = (value: unknown) =>

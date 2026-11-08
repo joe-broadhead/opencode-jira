@@ -33,23 +33,24 @@ import { Rpc } from "@opencode/plugin/rpc"
 
 // >>> PLUGIN-SPECIFIC >>>
 import { captureAccount, ACCOUNT_TOOL, SITES_TOOL } from "../account.js"
-import { DENY_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../jira-tools.js"
+import { DESTRUCTIVE_TOOLS, EXPORT_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../jira-tools.js"
 import { PLUGIN_ID as JIRA_PLUGIN_ID, SERVER_NAME } from "../constants.js"
 
 /** The plugin's id. The RPC id is `<PLUGIN_ID>.tools`. */
 export const PLUGIN_ID = JIRA_PLUGIN_ID
 
 /**
- * Every known Jira tool, by exact name, from the plugin's one table: the reads, the writes that ask, and the seven
- * tools the default rules deny. The three reads the pinned scope does not grant are methods too: Atlassian does not
+ * Every known Jira tool, by exact name, from the plugin's one table: the reads, the export that mints a signed URL, the
+ * writes, and the seven of the destructive class. The three reads the pinned scope does not grant are methods too: Atlassian does not
  * list them, so `describe` reports them unavailable with the connection state, and a call has no tool to run. A tool
  * Atlassian adds later is never a method until it is classified in `src/jira-tools.ts`. The class never decides whether
  * a call runs: the rules do.
  */
 export const METHODS: readonly MethodSpec[] = [
   ...READ_TOOLS.map((name): MethodSpec => ({ kind: "mcp", name, class: "read" })),
+  ...EXPORT_TOOLS.map((name): MethodSpec => ({ kind: "mcp", name, class: "export" })),
   ...WRITE_TOOLS.map((name): MethodSpec => ({ kind: "mcp", name, class: "write" })),
-  ...DENY_TOOLS.map((name): MethodSpec => ({ kind: "mcp", name, class: "destructive" })),
+  ...DESTRUCTIVE_TOOLS.map((name): MethodSpec => ({ kind: "mcp", name, class: "destructive" })),
 ]
 
 /** What the model path's `execute.before` hooks do to an MCP call's arguments. Jira has no such hook. */

@@ -1,16 +1,17 @@
 // Every fact the plugin keeps about Jira's tools: their names, without the `jira_` server prefix, sorted by name within
-// what they do. The default rules, the tools RPC's methods, status's unknown and denied tools and the tests all derive
+// what they do. The default rules, the tools RPC's methods, status's unknown and destructive tools and the tests all derive
 // from these lists; `jelly.tools` in package.json and the skills' call examples are checked against them. Keep this file
 // free of runtime imports.
 //
 // The names come from Atlassian's own list of its v2 MCP tools (support.atlassian.com, "Supported tools"), recorded in
-// test/unit/jira-tools.json; the drift test pins them to it. That list gives no schemas and no annotations, so each
+// test/unit/live-tools.json; the drift test pins them to it. That list gives no schemas and no annotations, so each
 // tool's class comes from Atlassian's description of it, and PARAMETERS stays empty until a tool list from a signed-in
 // server is recorded (CONTRIBUTING.md, "Drift check"). Atlassian loads only the tools the grant covers, so a known tool
 // missing from a live list is normal and never reported.
 
 /**
- * Known reads: each only reads, by Atlassian's description, and sends nothing to anyone. They run without asking.
+ * Known reads: each only reads, by Atlassian's description, and sends nothing to anyone. `access: "all"` and
+ * `ask-changes` allow them; `read-only` allows them too, being the one class it leaves alone.
  *
  * `atlassianUserInfo` and `getAccessibleAtlassianResources` are Atlassian's common tools, not Jira ones: every Jira call
  * needs a `cloudId` from the second, so both must run unasked or each session would start with a prompt.
@@ -20,7 +21,6 @@
  */
 export const READ_TOOLS: readonly string[] = [
   "atlassianUserInfo",
-  "downloadJiraIssueAttachment",
   "getAccessibleAtlassianResources",
   "getJiraBoardConfig",
   "getJiraBoardIssueData",
@@ -55,9 +55,10 @@ export const READ_TOOLS: readonly string[] = [
 ]
 
 /**
- * Known writes: they ask before they run. Every one can email people: a project's notification scheme decides, and the
- * safe assumption is that watchers, the assignee, the reporter and everyone mentioned are emailed. Two of them are four
- * or five operations behind one name, so a rule cannot see which one a call makes: the skill names the operation.
+ * Known writes. Every one can email people: a project's notification scheme decides, and the safe assumption is that
+ * watchers, the assignee, the reporter and everyone mentioned are emailed. Two of them are four or five operations
+ * behind one name, so a rule cannot see which one a call makes: the skill names the operation. `access: "all"` allows
+ * them like everything else; `ask-changes` asks for each call and `read-only` denies them.
  */
 export const WRITE_TOOLS: readonly string[] = [
   "addOrEditJiraIssueComment",
@@ -77,7 +78,8 @@ export const WRITE_TOOLS: readonly string[] = [
 ]
 
 /**
- * Off by default; a deny also hides them. A user or organisation turns one back on with a later `ask` rule for it.
+ * The destructive class: allowed by default like every other tool, and what `access: "read-only"` denies and
+ * `access: "ask-changes"` asks for on each call. A later rule of the user's still turns one back on.
  * - `deleteJiraIssue`, `deleteJiraComment` and `deleteJiraIssueAttachment` delete permanently, which cannot be undone.
  * - `createJiraProject`, `updateJiraProject` and `updateJiraScreen` are administration: a new organisation-visible
  *   container, its settings for everyone in it, or the fields everyone in the project can see and edit.
@@ -86,7 +88,7 @@ export const WRITE_TOOLS: readonly string[] = [
  *
  * The first six are also not granted by scope, so Atlassian never loads them: the rule is the second lock.
  */
-export const DENY_TOOLS: readonly string[] = [
+export const DESTRUCTIVE_TOOLS: readonly string[] = [
   "createJiraProject",
   "deleteJiraComment",
   "deleteJiraIssue",
@@ -111,11 +113,21 @@ export const NOT_GRANTED_TOOLS: readonly string[] = ["getJiraScreen", "getJiraWo
  */
 export const PARAMETERS: Readonly<Record<string, readonly string[]>> = {}
 
-type ToolClass = "read" | "write" | "denied" | "unknown"
+/**
+ * The export class: a tool that mints a secret, such as a short-lived signed URL. It is a change, not a read, so
+ * `access: "all"` allows it, `ask-changes` asks for each call, and `read-only` denies it.
+ */
+export const EXPORT_TOOLS: readonly string[] = ["downloadJiraIssueAttachment"]
+
+/** Every known tool, in the order the default rules list them. */
+export const ALL_TOOLS: readonly string[] = [...READ_TOOLS, ...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]
+
+type ToolClass = "read" | "write" | "export" | "destructive" | "unknown"
 
 export function classify(name: string): ToolClass {
   if (READ_TOOLS.includes(name)) return "read"
   if (WRITE_TOOLS.includes(name)) return "write"
-  if (DENY_TOOLS.includes(name)) return "denied"
+  if (EXPORT_TOOLS.includes(name)) return "export"
+  if (DESTRUCTIVE_TOOLS.includes(name)) return "destructive"
   return "unknown"
 }
