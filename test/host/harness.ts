@@ -109,6 +109,16 @@ export async function startHost(input: HostInput = {}) {
       const { data: servers } = await client.mcp.list({ location })
       return state?.status === "active" && servers.some((server) => server.status.status !== "pending") && probes.has(work)
     })
+    // A location reloads after its idle timeout, and a call made while it activates answers 503 "Location plugins did
+    // not finish activating". Warm the agent list here, where a retry is cheap, so a test's first call never races it.
+    await until("the agent list to answer", async () => {
+      try {
+        await client.agent.list({ location })
+        return true
+      } catch {
+        return false
+      }
+    })
   } catch (error) {
     await host.close().catch(() => {})
     throw error
