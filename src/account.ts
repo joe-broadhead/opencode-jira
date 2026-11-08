@@ -1,6 +1,7 @@
 import type { Plugin } from "@opencode/plugin"
 import { cut, oneLine } from "./redact.js"
 import { SERVER_NAME } from "./constants.js"
+import { delay, RESUBSCRIBE_MS } from "./watch.js"
 
 /**
  * What status shows about the signed-in Atlassian account: the display name from the last `atlassianUserInfo` result,
@@ -116,7 +117,6 @@ export function captureAccount(tool: string, result: Result): void {
   for (const item of captures) if (item.owned()) item.capture(tool, result)
 }
 
-const RESUBSCRIBE_MS = 5_000
 
 /**
  * Captures the account and its sites from the model's own calls to the two account reads, and from the tools RPC's, and
@@ -182,15 +182,3 @@ export async function watchAccount(
     },
   }
 }
-
-const delay = (ms: number, signal: AbortSignal) =>
-  new Promise<void>((resolve) => {
-    if (signal.aborted) return resolve()
-    const done = () => {
-      clearTimeout(timer)
-      signal.removeEventListener("abort", done)
-      resolve()
-    }
-    const timer = setTimeout(done, ms)
-    signal.addEventListener("abort", done, { once: true })
-  })

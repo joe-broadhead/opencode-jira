@@ -1,5 +1,6 @@
 import type { Plugin } from "@opencode/plugin"
 import { DISPLAY_NAME, SERVER_NAME } from "./constants.js"
+import { delay, RESUBSCRIBE_MS } from "./watch.js"
 
 export interface IntegrationContext {
   readonly mcp: Pick<Plugin.Context["mcp"], "list">
@@ -14,7 +15,6 @@ const SIGN_IN_AGAIN = "Jira needs a new sign-in. Choose this account to sign in 
 
 const STARTUP_POLL_MS = 250
 const STARTUP_WINDOW_MS = 10_000
-const RESUBSCRIBE_MS = 5_000
 
 /**
  * Keeps the `/connect` entry of the `jira` server named "Jira", and marks its account "Sign in required" while the
@@ -93,15 +93,3 @@ export function watchIntegration(ctx: IntegrationContext, owned: () => boolean) 
     registration = undefined
   }
 }
-
-const delay = (ms: number, signal: AbortSignal) =>
-  new Promise<void>((resolve) => {
-    if (signal.aborted) return resolve()
-    const done = () => {
-      clearTimeout(timer)
-      signal.removeEventListener("abort", done)
-      resolve()
-    }
-    const timer = setTimeout(done, ms)
-    signal.addEventListener("abort", done, { once: true })
-  })
