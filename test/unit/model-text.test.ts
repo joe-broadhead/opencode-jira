@@ -21,7 +21,7 @@ export function modelTexts(): [string, string][] {
 }
 
 /** A claim that a tool asks, waits for approval, or is off. */
-const CLAIM = /(?:(?:\ba|each|every|any|the) (?:tool|tools|change|changes|export|exports|pin|pins|write|writes|delete|deletes|merge|merges|call|calls) (?:asks?|ask) (?:the user|first|you|before|each time|every time|for (?:each|every))\b|\b(?:tools|changes|exports|writes|pins|deletes|merges) (?:ask|asks) (?:the user|first|you|before|each time|every time|for (?:each|every))\b|\bit asks? (?:the user|first)\b|\basks? (?:the user )?(?:before|each time|every time|for (?:each|every))\b|\bmay ask\b|\b(?:is|are) off\b|\b(?:the user|you) approv)/iu
+const CLAIM = /(?:(?:\ba|each|every|any|the) (?:tool|tools|change|changes|export|exports|pin|pins|write|writes|delete|deletes|merge|merges|call|calls) (?:asks?|ask) (?:the user|first|you|before|each time|every time|for (?:each|every))\b|\b(?:tools|changes|exports|writes|pins|deletes|merges) (?:ask|asks) (?:the user|first|you|before|each time|every time|for (?:each|every))\b|\bit asks? (?:the user|first)\b|\basks? (?:the user )?(?:before|each time|every time|for (?:each|every))\b|\bmay ask\b|\b(?:is|are) off\b|\b(?:the user|you) approv|\bpermission prompt (?:is|shows)\b|\bprompt (?:is|shows) (?:the user's|your)\b)/iu
 /** The value that makes such a claim true. */
 const VALUE = /\baccess\b|\bask-changes\b|\bread-only\b/u
 
