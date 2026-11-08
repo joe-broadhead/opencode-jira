@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- Default permission rules after each agent's base allow: every Jira tool is allowed, reads, writes, deletes and the
+  attachment export alike, and the namespace pattern covers a tool Atlassian adds later. The `access` option restricts
+  them: `all` (the default), `ask-changes` allows a read and asks for everything else, and `read-only` denies everything
+  but a read. Six of the seven destructive tools are also not granted by the sign-in's scope.
 - The tools RPC is v2: every known tool is scriptable under a prior explicit allow, each method carries its class,
   `describe` takes a session and reports each method's permission, and `shapeInput` runs beside `shapeResult` so a
   script's call reaches Atlassian with the model path's arguments. A saved "Always allow" no longer authorises an
@@ -20,10 +24,6 @@ All notable changes to this project are documented here. The format follows [Kee
   sign-in.
 - Adopts your own `mcp.servers.jira` at Atlassian's URL, query included, unchanged. The plugin never reads its headers.
   A plain `/v2/mcp`, a v1 URL, another origin or a local command is a conflict that status explains.
-- Default permission rules after each agent's base allow: every Jira tool is allowed, reads, writes, deletes and the
-  attachment export alike, and the namespace pattern covers a tool Atlassian adds later. The `access` option restricts
-  them: `all` (the default), `ask-changes` allows a read and asks for everything else, and `read-only` denies everything
-  but a read. Six of the seven destructive tools are also not granted by the sign-in's scope.
 - `/jira-status` and the `/jira` dialog ("Jira: Status" in the palette): connection, account, sites, access, tools, the
   tools this plugin's scope does not grant, agents without the default rules, the OpenCode check and one next step. A
   skill of yours with one of the plugin's ids is named, with a next step.
