@@ -61,6 +61,8 @@ jobs:
         run: node -e 'const [a, b, c] = process.argv[1].split(".").map(Number); if (a < 11 || (a === 11 && (b < 5 || (b === 5 && c < 1)))) { console.error("::error::npm " + process.argv[1] + " cannot use trusted publishing."); process.exit(1) }' "$(npm --version)"
       - run: npm ci --ignore-scripts
       - run: npm run check
+      - name: Refuse a version without release notes
+        run: npm run release:check
       - name: Pack the checked tree
         run: npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP"
       - name: Run the pack test against that tarball

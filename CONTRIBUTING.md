@@ -44,6 +44,8 @@ npm run check
 | `host` | `bun test ./test/host`: the plugin inside an embedded OpenCode host, once on each tested release (`@opencode/sdk` 2.2.3, 2.2.4, 2.2.5 and 2.2.6) |
 | `pack` | `bun test ./test/pack`: builds, packs and installs the package, imports both entry points, and loads it in stock OpenCode 2.2.3, 2.2.4, 2.2.5 and 2.2.6 |
 | `forbidden` | `node scripts/check-forbidden.mjs`: scans `src/`, `test/`, `scripts/` and `dist/` for forbidden APIs and machine-local paths |
+| `copies` | `node scripts/check-copies.mjs`: the tools RPC's shared part in `src/host/tools-rpc.ts` matches the copy every plugin carries, outside its `PLUGIN-SPECIFIC` block |
+| `lint:actions` | `actionlint` over the workflows, when it is on PATH; CI runs it as its own job |
 | `icons` | `node scripts/check-icons.mjs`: the SVG is clean and exact, the 128 and 256 PNGs exist, and `exports` and `files` agree |
 | `whitelist` | Checks `package.json` against the approved package shape, and that `dist/` holds exactly `index.js` and `tui.js` |
 
@@ -197,7 +199,7 @@ check (`SUPPORTED_HOST` in `src/constants.ts`). Both must change together, with 
 
 ### Releasing
 
-1. Update `version` in `package.json` and add the `CHANGELOG.md` entry, then run `npm run check`.
+1. Update `version` in `package.json` and add the `CHANGELOG.md` entry, then run `npm run check` and `npm run release:check`, which refuses a version with no section in `CHANGELOG.md`.
 2. Push the release commit to `master` and tag it `v<version>`. The release workflow refuses a
    private package or a tag that differs from `version`.
 3. Approve the run in the GitHub environment `release`.
