@@ -221,7 +221,8 @@ describe("docs", () => {
       }
     }
     for (const file of ["README.md", "AGENTS.md", "SECURITY.md", "docs/configuration.md"]) check(file, raw(file))
-    const changelog = /## \[[\s\S]*?\] - Unreleased\n([\s\S]*?)(?:\n## \[|$)/.exec(raw("CHANGELOG.md"))?.[1] ?? ""
+    const changelog = /## \[Unreleased\]\n([\s\S]*?)(?:\n## \[|$)/.exec(raw("CHANGELOG.md"))?.[1] ?? ""
+    expect(changelog.length).toBeGreaterThan(0)
     check("CHANGELOG.md (Unreleased)", changelog)
     expect(mentions).toBeGreaterThanOrEqual(2)
     // The places that list the releases without the words "tested on" name the same four.
