@@ -184,7 +184,7 @@ describe("setup", () => {
     // can email, the attachment link as a credential, untrusted text, and where the tools come from.
     for (const words of [
       "Read the jira skill before the first call",
-      "Every Jira tool is allowed by default",
+      "By default every Jira tool is allowed",
       "say in your reply what it does and whom it reaches",
       "Every change can email watchers and everyone mentioned",
       "keep it in the chat only",
