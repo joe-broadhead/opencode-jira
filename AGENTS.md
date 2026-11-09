@@ -102,6 +102,8 @@ enforces the same wording rules over the shipped docs:
 - internal wording: a decision attributed to the owner, the lead or a reviewer; a lane's name or identifier; and a
   `hey-jelly` issue reference;
 
+- internal wording: a decision attributed to the owner, the lead or a reviewer; a lane's name or identifier; and a
+  `hey-jelly` issue reference;
 - dispatch-lease, catalog-ownership and text-only markers, and tool `options.mcp` delegation;
 - `Plugin.image` and profile images;
 - imported OAuth grants;
