@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- Both skills explain how to connect Jira when its tools are absent, including the organisation's Atlassian MCP prerequisite.
+
 - Default permission rules after each agent's base allow: every Jira tool is allowed, reads, writes, deletes and the
   attachment export alike, and the namespace pattern covers a tool Atlassian adds later. The `access` option restricts
   them: `all` (the default), `ask-changes` allows a read and asks for everything else, and `read-only` denies everything

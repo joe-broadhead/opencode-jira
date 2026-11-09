@@ -3,6 +3,8 @@ name: jira
 description: Load before the first Jira tool call (jira_*, tools.jira.*). For the user's Jira work items (tickets, issues, epics), a key such as PROJ-42 or an atlassian.net link, JQL search, comments, logged time, boards, sprints, the backlog, story points, versions, filters and dashboards, and Jira sign-in or site selection. Not for Linear issues, GitHub issues, or meetings and transcripts. Confluence pages are outside this Jira-only plugin and it requests no Confluence access, so say that once rather than searching another app for them.
 ---
 
+If Jira's tools are absent, run `/connect` and choose Jira, or on Jelly call jelly_connection_request. Your organisation must allow Atlassian MCP.
+
 # Jira
 
 Atlassian calls them "work items" in its newer wording; the words ticket and issue mean the same thing. Tools are
