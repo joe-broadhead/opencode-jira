@@ -24,7 +24,14 @@ jobs:
           persist-credentials: false
       - name: Lint the workflows
         run: |
-          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
+          # The archive is checked against the published checksums before it runs.
+          set -euo pipefail
+          version=1.7.12
+          base="https://github.com/rhysd/actionlint/releases/download/v${version}"
+          curl -sSfLO "${base}/actionlint_${version}_linux_amd64.tar.gz"
+          curl -sSfLO "${base}/actionlint_${version}_checksums.txt"
+          grep " actionlint_${version}_linux_amd64.tar.gz$" "actionlint_${version}_checksums.txt" | sha256sum -c -
+          tar xzf "actionlint_${version}_linux_amd64.tar.gz" actionlint
           ./actionlint -no-color
 
   check:
