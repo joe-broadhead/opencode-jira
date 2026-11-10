@@ -1,8 +1,6 @@
-import { afterAll, expect, test } from "bun:test"
+import { expect, test } from "bun:test"
 import * as z from "zod"
-import { holdRoot, releaseRoot, startHost, until } from "./harness.js"
-
-holdRoot()
+import { startHost, until } from "./harness.js"
 
 test("the forced Jira catalogue stays under 1,000 tokens", async () => {
   let captured = ""
@@ -32,4 +30,3 @@ test("the forced Jira catalogue stays under 1,000 tokens", async () => {
   } finally { await host?.close(); mock.stop(true) }
 }, 120_000)
 
-afterAll(releaseRoot)

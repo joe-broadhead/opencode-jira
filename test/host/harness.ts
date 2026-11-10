@@ -4,7 +4,7 @@
 // options injected the way the host passes config options. A probe plugin, loaded after it, lends its context to the
 // tests.
 import { HOST_SDK_DIR, ROOT as root } from "./isolate.js"
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import type { OpenCodeClient } from "@opencode/client"
@@ -38,22 +38,6 @@ globalThis.fetch = Object.assign(
   { preconnect: realFetch.preconnect },
 ) as typeof fetch
 
-
-/**
- * Host files still using the shared root. Bun runs every test file of one process, and they all use this root and its
- * working directory, so a file gives its hold back in its afterAll and the root goes with the last one. A file that
- * removed it earlier would break the files after it (on Linux the working directory can no longer be read).
- */
-let holds = 0
-/** Takes a hold on the root; a host file calls it once, when it loads. */
-export const holdRoot = () => {
-  holds += 1
-}
-/** Gives a hold back; the last hold removes the root. */
-export const releaseRoot = () => {
-  holds -= 1
-  if (holds === 0) rmSync(root, { recursive: true, force: true })
-}
 
 const skillsDir = join(root, "skills")
 for (const name of SKILL_NAMES) {

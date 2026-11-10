@@ -18,9 +18,7 @@ import { SKILL_NAMES } from "../../src/skills.js"
 import { StatusRpc } from "../../src/status.js"
 import { TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
 import { ACCOUNT_READS, ATLASSIAN_ALL_SCOPES, ATLASSIAN_SCOPES, MODEL_ID, READ_A, READ_B } from "./fake-mcp.js"
-import { agentRules, attempt, effect, HOST_VERSION, holdRoot, releaseRoot, session, startHost, until, type Host } from "./harness.js"
-
-holdRoot()
+import { agentRules, attempt, effect, HOST_VERSION, session, startHost, until, type Host } from "./harness.js"
 
 const KEY = "sk-fake-host-test-0123456789"
 const SIGN_IN = "Run /connect and choose Jira, then press o or Enter to open the link (in a terminal, opencode mcp auth jira opens it automatically; run it from the project folder, and if it answers MCP server not found: jira, wait a few seconds and run it again)."
@@ -29,7 +27,6 @@ const NOT_READ_YET = "not read yet: it appears after the first Jira call since O
 
 // Starting a host takes several seconds, more on a busy machine.
 setDefaultTimeout(120_000)
-afterAll(releaseRoot)
 
 const BUILT_IN = ["build", "general", "explore", "compaction", "title", "summary", "plan"]
 const allow = (tool: string): Rule => ({ action: `jira_${tool}`, resource: "*", effect: "allow" })

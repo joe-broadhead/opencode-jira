@@ -69,11 +69,11 @@ function run(command, args, options = {}) {
  * into a temp folder under the system's /tmp, outside the lockfile, once per run. HOST_SDK_DIR runs only that SDK.
  */
 function host() {
-  if (process.env.HOST_SDK_DIR) return run("bun", ["test", "./test/host"])
+  if (process.env.HOST_SDK_DIR) return run("bun", ["test", "--preload", "./test/host/preload.ts", "./test/host"])
   for (const version of TESTED_HOSTS) {
     console.log(`\n[check] host on @opencode/sdk ${version}`)
     if (version === HOST_DEV_PIN) {
-      const code = run("bun", ["test", "./test/host"])
+      const code = run("bun", ["test", "--preload", "./test/host/preload.ts", "./test/host"])
       if (code !== 0) return code
       continue
     }
@@ -82,7 +82,7 @@ function host() {
       // Its own package.json, so npm never walks up to another one.
       writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "jira-host-sdk", private: true }))
       const code = run("npm", ["install", `@opencode/sdk@${version}`, "--ignore-scripts", "--no-audit", "--no-fund", "--prefer-offline"], { cwd: dir })
-        || run("bun", ["test", "./test/host"], { env: { HOST_SDK_DIR: dir } })
+        || run("bun", ["test", "--preload", "./test/host/preload.ts", "./test/host"], { env: { HOST_SDK_DIR: dir } })
       if (code !== 0) return code
     } finally {
       rmSync(dir, { recursive: true, force: true })
