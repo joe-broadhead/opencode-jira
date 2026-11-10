@@ -19,7 +19,7 @@ Unofficial; not affiliated with Atlassian.
 - Your own Jira permissions decide what you can see and change. A site admin can also block access by IP address.
 - The tools are Atlassian's, and Atlassian may change them without notice. A tool Atlassian adds is allowed at once
   under `access: "all"`, and is counted as unknown until a release knows it.
-- The 32 read, 1 export, 14 write and 7 destructive tools, and their classes, come from Atlassian's own published tool
+- The 33 read, 1 export, 14 write and 7 destructive tools, and their classes, come from Atlassian's own published tool
   list, which gives no annotations: treat a class as Atlassian's description of the tool, not as its annotation.
 
 ## Install
@@ -146,6 +146,7 @@ The plugin adds these rules for `access: "all"`:
     { "action": "jira_*", "resource": "*", "effect": "allow" },
     { "action": "jira_atlassianUserInfo", "resource": "*", "effect": "allow" },
     { "action": "jira_getAccessibleAtlassianResources", "resource": "*", "effect": "allow" },
+    { "action": "jira_getContentFormatGuide", "resource": "*", "effect": "allow" },
     { "action": "jira_getJiraBoardConfig", "resource": "*", "effect": "allow" },
     { "action": "jira_getJiraBoardIssueData", "resource": "*", "effect": "allow" },
     { "action": "jira_getJiraBoardSprintData", "resource": "*", "effect": "allow" },
@@ -210,6 +211,7 @@ The plugin adds these rules for `access: "ask-changes"`:
     { "action": "jira_*", "resource": "*", "effect": "ask" },
     { "action": "jira_atlassianUserInfo", "resource": "*", "effect": "allow" },
     { "action": "jira_getAccessibleAtlassianResources", "resource": "*", "effect": "allow" },
+    { "action": "jira_getContentFormatGuide", "resource": "*", "effect": "allow" },
     { "action": "jira_getJiraBoardConfig", "resource": "*", "effect": "allow" },
     { "action": "jira_getJiraBoardIssueData", "resource": "*", "effect": "allow" },
     { "action": "jira_getJiraBoardSprintData", "resource": "*", "effect": "allow" },
@@ -274,6 +276,7 @@ The plugin adds these rules for `access: "read-only"`:
     { "action": "jira_*", "resource": "*", "effect": "deny" },
     { "action": "jira_atlassianUserInfo", "resource": "*", "effect": "allow" },
     { "action": "jira_getAccessibleAtlassianResources", "resource": "*", "effect": "allow" },
+    { "action": "jira_getContentFormatGuide", "resource": "*", "effect": "allow" },
     { "action": "jira_getJiraBoardConfig", "resource": "*", "effect": "allow" },
     { "action": "jira_getJiraBoardIssueData", "resource": "*", "effect": "allow" },
     { "action": "jira_getJiraBoardSprintData", "resource": "*", "effect": "allow" },

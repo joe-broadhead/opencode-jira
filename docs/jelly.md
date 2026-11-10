@@ -25,7 +25,7 @@ family's own drawing, not Atlassian's logo, shape or brand colour.
 
 ## Tools and permissions
 
-54 tools are declared (32 read-only), every tool in `src/jira-tools.ts`: each tool with `allow`, and only the reads
+55 tools are declared (33 read-only), every tool in `src/jira-tools.ts`: each tool with `allow`, and only the reads
 marked `readOnly`, which is what a read-only helper is allowed to run. Jelly's agents have no base "allow everything"
 rule, so this plugin's own default rules, which it puts after that rule, never reach them; the declaration is the whole
 posture. A declared `allow` changes nothing in Jelly, which already runs what Jelly's own settings permit.
