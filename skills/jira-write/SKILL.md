@@ -11,7 +11,7 @@ skill is not loaded.
 
 Make a change only when the user asked for it. Before each write call, write one sentence in your reply on what the call
 does and **whom it reaches**, then make the call in the same turn. That sentence is chat text, not a question. By default every Jira
-tool is allowed, so a change can run with no prompt; the `access` option decides otherwise. Your sentence is the only warning. Under
+tool is allowed; the `access` option decides whether each change runs, asks or is denied. Your sentence is the only warning at the default. Under
 `access: "ask-changes"` the permission prompt is the user's yes, and `read-only` denies the call. Ask in chat first only
 when something must be chosen: which site, which work item, which transition — and the site only while `jira` has not
 settled it, with the keys when a search matches more than one. Declined: say nothing changed, name whom it would have

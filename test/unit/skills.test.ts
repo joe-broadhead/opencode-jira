@@ -175,7 +175,7 @@ describe("skills", () => {
     const text = flat("jira-write")
     expect(text).toMatch(/Before each write call, write one sentence in your reply on what the call does and \*\*whom it reaches\*\*, then make the call in the same turn/)
     // R18: the default allows a change, so the sentence is the only warning; ask-changes makes the prompt the yes.
-    expect(text).toMatch(/By default every Jira tool is allowed, so a change can run with no prompt; the `access` option decides otherwise. Your sentence is the only warning/)
+    expect(text).toMatch(/By default every Jira tool is allowed; the `access` option decides whether each change runs, asks or is denied\. Your sentence is the only warning at the default/)
     expect(text).toMatch(/Under `access: "ask-changes"` the permission prompt is the user's yes, and `read-only` denies the call/)
     expect(text).toMatch(/Ask in chat first only when something must be chosen: which site, which work item, which transition/)
     expect(text).toMatch(/Declined: say nothing changed, name whom it would have reached, and offer your drafted text or a retry, never a workaround/)
