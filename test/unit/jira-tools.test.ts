@@ -14,10 +14,12 @@ describe("Jira's tool lists", () => {
     for (const list of [READ_TOOLS, EXPORT_TOOLS, WRITE_TOOLS, DESTRUCTIVE_TOOLS, NOT_GRANTED_TOOLS]) expect([...list]).toEqual([...list].sort())
   })
 
-  test("pin the counts Atlassian's Jira groups give: 32 reads, 1 export, 14 writes, 7 destructive", () => {
+  test("pin the counts Atlassian's Jira groups give: 33 reads, 1 export, 14 writes, 7 destructive", () => {
     // Two of the reads are Atlassian's common tools, which every Jira call needs.
-    expect([READ_TOOLS.length, EXPORT_TOOLS.length, WRITE_TOOLS.length, DESTRUCTIVE_TOOLS.length]).toEqual([32, 1, 14, 7])
+    expect([READ_TOOLS.length, EXPORT_TOOLS.length, WRITE_TOOLS.length, DESTRUCTIVE_TOOLS.length]).toEqual([33, 1, 14, 7])
     expect(READ_TOOLS).toContain("atlassianUserInfo")
+    // The content-format guide returns authoring guidance and writes nothing, so it is a read, as the live list shows it.
+    expect(READ_TOOLS).toContain("getContentFormatGuide")
     expect(READ_TOOLS).toContain("getAccessibleAtlassianResources")
     expect(EXPORT_TOOLS).toEqual(["downloadJiraIssueAttachment"])
   })

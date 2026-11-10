@@ -13,6 +13,9 @@
  * Known reads: each only reads, by Atlassian's description, and sends nothing to anyone. `access: "all"` and
  * `ask-changes` allow them; `read-only` allows them too, being the one class it leaves alone.
  *
+ * `getContentFormatGuide` returns Atlassian's authoring guidance for a content body, and writes nothing. It is in the live
+ * list the server gives a signed-in connection, and was not in the table before the reconcile of 2026-11-10.
+ *
  * `atlassianUserInfo` and `getAccessibleAtlassianResources` are Atlassian's common tools, not Jira ones: every Jira call
  * needs a `cloudId` from the second, so both must run unasked or each session would start with a prompt.
  *
@@ -22,6 +25,7 @@
 export const READ_TOOLS: readonly string[] = [
   "atlassianUserInfo",
   "getAccessibleAtlassianResources",
+  "getContentFormatGuide",
   "getJiraBoardConfig",
   "getJiraBoardIssueData",
   "getJiraBoardSprintData",

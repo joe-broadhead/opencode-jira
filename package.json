@@ -101,14 +101,14 @@
         "readOnly": true
       },
       {
-        "name": "jira.downloadJiraIssueAttachment",
-        "permission": "jira_downloadJiraIssueAttachment",
-        "effect": "allow",
-        "readOnly": false
-      },
-      {
         "name": "jira.getAccessibleAtlassianResources",
         "permission": "jira_getAccessibleAtlassianResources",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "jira.getContentFormatGuide",
+        "permission": "jira_getContentFormatGuide",
         "effect": "allow",
         "readOnly": true
       },
@@ -291,6 +291,12 @@
         "permission": "jira_searchJiraIssuesUsingJql",
         "effect": "allow",
         "readOnly": true
+      },
+      {
+        "name": "jira.downloadJiraIssueAttachment",
+        "permission": "jira_downloadJiraIssueAttachment",
+        "effect": "allow",
+        "readOnly": false
       },
       {
         "name": "jira.addOrEditJiraIssueComment",

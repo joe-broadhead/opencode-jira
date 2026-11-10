@@ -215,6 +215,10 @@
   {
    "name": "updateJiraScreen",
    "description": "Changes a company-managed screen's fields for everyone in the project, so it changes what others can see and edit. Has a plan-then-commit gate"
+  },
+  {
+   "name": "getContentFormatGuide",
+   "description": "Get the content-format guide for authoring a rich content body or constructing a Confluence Remix prompt. Pass `toolName` to receive the canonical guidance for that operation. For generic Confluence content writes, pass the content-specific key (for example `createConfluencePage`, not `createConfluenceContent`). For Remix, pass the exact create/edit operation you are about to call. Use this before authoring or editing rich Confluence content, constructing a Remix generation/edit prompt, or writing a Jira issue/comment body in HTML. First call with only `toolName`; if the returned guidance references follow-up documents, call this operation again with the same `toolName` and `reference` set to a single referenced path to load that additional guidance. Fetch one document per call."
   }
  ]
 }
