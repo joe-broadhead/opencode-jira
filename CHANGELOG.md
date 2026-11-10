@@ -19,6 +19,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Jelly shows an `access` setting (`all`, `ask-changes` or `read-only`; `all` by default), the option the plugin already reads.
 - Registers Atlassian's official MCP server, `https://mcp.atlassian.com/v2/mcp?tools=all`, as `jira`, signed in with
   OpenCode's own MCP OAuth. The sign-in asks for Jira read, write and search only, plus your account name and an
   offline token: no delete, no manage, and no Confluence, so Atlassian never loads those tools.
