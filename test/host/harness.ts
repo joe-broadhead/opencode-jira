@@ -38,8 +38,22 @@ globalThis.fetch = Object.assign(
   { preconnect: realFetch.preconnect },
 ) as typeof fetch
 
-/** Removes the temp root; call once after every host in the file has closed. */
-export const cleanup = () => rmSync(root, { recursive: true, force: true })
+
+/**
+ * Host files still using the shared root. Bun runs every test file of one process, and they all use this root and its
+ * working directory, so a file gives its hold back in its afterAll and the root goes with the last one. A file that
+ * removed it earlier would break the files after it (on Linux the working directory can no longer be read).
+ */
+let holds = 0
+/** Takes a hold on the root; a host file calls it once, when it loads. */
+export const holdRoot = () => {
+  holds += 1
+}
+/** Gives a hold back; the last hold removes the root. */
+export const releaseRoot = () => {
+  holds -= 1
+  if (holds === 0) rmSync(root, { recursive: true, force: true })
+}
 
 const skillsDir = join(root, "skills")
 for (const name of SKILL_NAMES) {
