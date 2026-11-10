@@ -43,8 +43,9 @@ describe("docs", () => {
     expect(text(file)).not.toMatch(/provisional|not yet (?:checked|published|signed)|private package|TODO/i)
   })
 
-  test("the README names no version of the plugin, not even in an example", () => {
-    expect(text("README.md")).not.toMatch(/opencode-jira@\d|\b0\.\d+\.\d+\b|\bv\d+\.\d+\.\d+\b/)
+  // The one exception is the install spec, which names the release tag by design (the GitHub install takes `#v0.0.0`).
+  test("the README names no version of the plugin, except its install spec", () => {
+    expect(text("README.md").replace("opencode-jira#v0.0.0", "")).not.toMatch(/opencode-jira@\d|\b0\.\d+\.\d+\b|\bv\d+\.\d+\.\d+\b/)
   })
 
   // R18: nothing is restricted by default, so the README shows how to restrict instead. Every change is `ask` in the
@@ -221,7 +222,8 @@ describe("docs", () => {
       }
     }
     for (const file of ["README.md", "AGENTS.md", "SECURITY.md", "docs/configuration.md"]) check(file, raw(file))
-    const changelog = /## \[[\s\S]*?\] - Unreleased\n([\s\S]*?)(?:\n## \[|$)/.exec(raw("CHANGELOG.md"))?.[1] ?? ""
+    // The release heading is `## [0.0.0] - <date>` once the release kit has dated it; before that, `- Unreleased`.
+    const changelog = /## \[[\s\S]*?\] - (?:Unreleased|\d{4}-\d{2}-\d{2})\n([\s\S]*?)(?:\n## \[|$)/.exec(raw("CHANGELOG.md"))?.[1] ?? ""
     expect(changelog.length).toBeGreaterThan(0)
     check("CHANGELOG.md (Unreleased)", changelog)
     expect(mentions).toBeGreaterThanOrEqual(2)

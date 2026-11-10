@@ -25,7 +25,7 @@ Unofficial; not affiliated with Atlassian.
 ## Install
 
 ```sh
-opencode plugin add @joe-broadhead/opencode-jira
+opencode plugin add github:joe-broadhead/opencode-jira#v0.0.0
 ```
 
 Run `opencode reload`, or restart OpenCode. Then run `/jira-status`: it shows `sign-in required` until you sign in
@@ -35,8 +35,8 @@ The plugin registers Atlassian's MCP server under the name `jira`, adds default 
 command, the `/jira` status view and two skills. Every tool is Atlassian's, and OpenCode handles the connection, the
 sign-in and the stored credentials.
 
-**Update** with `opencode plugin update @joe-broadhead/opencode-jira`, then run `opencode reload`. An entry pinned to a
-version does not update: remove the `@version` from its `plugins` entry first.
+The install takes the GitHub release tag. Its commit carries the built `dist/`, so the install runs no build.
+A new release is a new tag: install it with its own `#v<version>` spec.
 
 ## Sign in
 
