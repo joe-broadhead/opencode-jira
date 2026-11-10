@@ -93,6 +93,6 @@ and **Write** for any change. A change tool you expected but cannot see is that 
 
 A cron job or shell script can run the same reads with no model through the tools RPC `jira.issues.tools`; writes are
 never available there. It runs as a session's agent, under its rules: use a session created for it
-(`opencode api post /api/session -d '{"title":"…","agent":"build"}'`, keep `data.id`), never borrow one found through
+(`opencode api post /api/session -d '{"title":"…","agent":"build","location":{"directory":"/path/to/project"}}'`, keep `data.id`), never borrow one found through
 history or a list. Every call needs the `cloudId` from `getAccessibleAtlassianResources`, and calls go one at a time.
 Details: https://raw.githubusercontent.com/joe-broadhead/opencode-jira/HEAD/docs/scripting.md
