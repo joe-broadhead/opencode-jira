@@ -4,7 +4,7 @@ Every option is optional. The smallest setup is one entry in `plugins`:
 
 ```json
 {
-  "plugins": ["@joe-broadhead/opencode-jira"]
+  "plugins": ["github:joe-broadhead/opencode-jira#v0.0.0"]
 }
 ```
 
@@ -12,7 +12,7 @@ To set options, use the object form:
 
 ```json
 {
-  "plugins": [{ "package": "@joe-broadhead/opencode-jira", "options": { "allowUntestedHost": true } }]
+  "plugins": [{ "package": "github:joe-broadhead/opencode-jira#v0.0.0", "options": { "allowUntestedHost": true } }]
 }
 ```
 
@@ -293,7 +293,7 @@ Every error from the plugin reads `CODE: What happened. Next step: What to do.`
 For example:
 
 ```text
-OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost", "access". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "@joe-broadhead/opencode-jira", "options": { "access": "ask-changes" } }].
+OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost", "access". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "github:joe-broadhead/opencode-jira#v0.0.0", "options": { "access": "ask-changes" } }].
 ```
 
 Errors from Atlassian's server and from OpenCode pass through unchanged, including `invalid_token`, a refusal for a scope

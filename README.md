@@ -31,12 +31,16 @@ opencode plugin add github:joe-broadhead/opencode-jira#v0.0.0
 Run `opencode reload`, or restart OpenCode. Then run `/jira-status`: it shows `sign-in required` until you sign in
 (see [Sign in](#sign-in)).
 
+A Git install is removed and updated by its installed spec: `opencode plugin remove github:joe-broadhead/opencode-jira#v0.0.0`. `opencode plugin update` and `opencode plugin check` take the same spec.
+
 The plugin registers Atlassian's MCP server under the name `jira`, adds default permission rules, the `/jira-status`
 command, the `/jira` status view and two skills. Every tool is Atlassian's, and OpenCode handles the connection, the
 sign-in and the stored credentials.
 
 The install takes the GitHub release tag. Its commit carries the built `dist/`, so the install runs no build.
 A new release is a new tag: install it with its own `#v<version>` spec.
+
+**Update** with `opencode plugin update github:joe-broadhead/opencode-jira#v0.0.0`, then run `opencode reload`. An entry pinned to a tag does not move: to take a newer release, install its own `#v<version>` spec.
 
 ## Sign in
 
@@ -123,7 +127,7 @@ There are three ways to restrict it.
 ```json
 {
   "plugins": [
-    { "package": "@joe-broadhead/opencode-jira", "options": { "access": "ask-changes" } }
+    { "package": "github:joe-broadhead/opencode-jira#v0.0.0", "options": { "access": "ask-changes" } }
   ]
 }
 ```
@@ -418,7 +422,7 @@ Set options with the object form of the plugin entry:
 
 ```json
 {
-  "plugins": [{ "package": "@joe-broadhead/opencode-jira", "options": { "allowUntestedHost": true } }]
+  "plugins": [{ "package": "github:joe-broadhead/opencode-jira#v0.0.0", "options": { "allowUntestedHost": true } }]
 }
 ```
 
@@ -439,7 +443,7 @@ plugin entry in the system config: `/Library/Application Support/opencode/openco
 
 ```json
 {
-  "plugins": ["@joe-broadhead/opencode-jira"],
+  "plugins": ["github:joe-broadhead/opencode-jira#v0.0.0"],
   "permissions": [{ "action": "jira_createJiraIssue", "resource": "*", "effect": "deny" }]
 }
 ```
@@ -539,7 +543,7 @@ sign-in stays in OpenCode's credential store.
    where the plugin is installed. If it answers `MCP server not found: jira`, OpenCode is still opening that folder:
    wait a few seconds and run it again.
 2. Check: `opencode auth list` no longer lists **Jira**.
-3. Remove the plugin: `opencode plugin remove @joe-broadhead/opencode-jira`, then `opencode reload`.
+3. Remove the plugin: `opencode plugin remove github:joe-broadhead/opencode-jira#v0.0.0`, then `opencode reload`.
    `opencode mcp list` no longer lists `jira`.
 4. Remove any Jira rules you copied into your agents' own `permissions`.
 

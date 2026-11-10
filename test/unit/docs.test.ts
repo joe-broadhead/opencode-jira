@@ -45,7 +45,7 @@ describe("docs", () => {
 
   // The one exception is the install spec, which names the release tag by design (the GitHub install takes `#v0.0.0`).
   test("the README names no version of the plugin, except its install spec", () => {
-    expect(text("README.md").replace("opencode-jira#v0.0.0", "")).not.toMatch(/opencode-jira@\d|\b0\.\d+\.\d+\b|\bv\d+\.\d+\.\d+\b/)
+    expect(text("README.md").replaceAll("opencode-jira#v0.0.0", "")).not.toMatch(/opencode-jira@\d|\b0\.\d+\.\d+\b|\bv\d+\.\d+\.\d+\b/)
   })
 
   // R18: nothing is restricted by default, so the README shows how to restrict instead. Every change is `ask` in the
@@ -153,7 +153,7 @@ describe("docs", () => {
     const uninstall = /## Uninstall(.*?)## Links/.exec(text("README.md"))?.[1] ?? ""
     const logout = uninstall.indexOf("opencode mcp logout jira")
     const list = uninstall.indexOf("opencode auth list")
-    const remove = uninstall.indexOf("opencode plugin remove @joe-broadhead/opencode-jira")
+    const remove = uninstall.indexOf("opencode plugin remove github:joe-broadhead/opencode-jira#v0.0.0")
     expect(logout).toBeGreaterThanOrEqual(0)
     expect(list).toBeGreaterThan(logout)
     expect(remove).toBeGreaterThan(list)
