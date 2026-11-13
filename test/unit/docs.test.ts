@@ -27,6 +27,11 @@ const text = (file: string) => raw(file).replace(/\s+/g, " ")
 /** The per-tool deny the README and the guide give as way 3, for the tool a reader is likeliest to want off. */
 const OPT_IN_TOOL = '{ "action": "jira_deleteJiraIssue", "resource": "*", "effect": "deny" }'
 
+/** The release the install specs name: package.json's version. */
+const VERSION = (JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { version: string }).version
+/** The README's upgrade example removes an earlier release's entry; it must name one before VERSION. */
+const UPGRADE_FROM = /remove the old entry with `opencode plugin remove github:joe-broadhead\/opencode-jira#v(\d+)\.(\d+)\.(\d+)`/
+
 describe("docs", () => {
   test.each(FILES)("%s states no count of read, write or declared tools that could go stale", (file) => {
     const counts = [...text(file).matchAll(/\b\d+ (?:known )?(?:read|write)(?:s\b| tools\b| read-only)|\b\d+ tools are declared/g)].map((match) => match[0])
@@ -43,9 +48,10 @@ describe("docs", () => {
     expect(text(file)).not.toMatch(/provisional|not yet (?:checked|published|signed)|private package|TODO/i)
   })
 
-  // The one exception is the install spec, which names the release tag by design (the GitHub install takes `#v0.0.0`).
+  // The exceptions are the install spec, which names the release tag by design (the GitHub install takes `#v<version>`),
+  // and the upgrade example, which removes an earlier release's entry.
   test("the README names no version of the plugin, except its install spec", () => {
-    expect(text("README.md").replaceAll("opencode-jira#v0.0.0", "")).not.toMatch(/opencode-jira@\d|\b0\.\d+\.\d+\b|\bv\d+\.\d+\.\d+\b/)
+    expect(text("README.md").replaceAll(`opencode-jira#v${VERSION}`, "").replace(UPGRADE_FROM, "")).not.toMatch(/opencode-jira@\d|\b0\.\d+\.\d+\b|\bv\d+\.\d+\.\d+\b/)
   })
 
   // R18: nothing is restricted by default, so the README shows how to restrict instead. Every change is `ask` in the
@@ -153,7 +159,7 @@ describe("docs", () => {
     const uninstall = /## Uninstall(.*?)## Links/.exec(text("README.md"))?.[1] ?? ""
     const logout = uninstall.indexOf("opencode mcp logout jira")
     const list = uninstall.indexOf("opencode auth list")
-    const remove = uninstall.indexOf("opencode plugin remove github:joe-broadhead/opencode-jira#v0.0.0")
+    const remove = uninstall.indexOf(`opencode plugin remove github:joe-broadhead/opencode-jira#v${VERSION}`)
     expect(logout).toBeGreaterThanOrEqual(0)
     expect(list).toBeGreaterThan(logout)
     expect(remove).toBeGreaterThan(list)
@@ -317,5 +323,16 @@ describe("docs", () => {
     expect(readme).toContain("The tool table comes from Atlassian's docs")
     expect(readme).toContain("In Jelly, a tool Atlassian adds is not asked about")
     expect(readme).not.toContain("has not been reconciled with a live tool list")
+  })
+})
+
+describe("the upgrade example", () => {
+  test("removes an earlier release than the one the install specs name", () => {
+    const match = UPGRADE_FROM.exec(text("README.md"))
+    expect(match).not.toBeNull()
+    const earlier = match!.slice(1, 4).map(Number)
+    const current = VERSION.split(".").map(Number)
+    const order = earlier.map((part, index) => part - current[index]!).find((difference) => difference !== 0) ?? 0
+    expect(order).toBeLessThan(0)
   })
 })
