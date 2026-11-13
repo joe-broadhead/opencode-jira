@@ -538,6 +538,8 @@ The status RPC's own error is `unavailable`, with a next step, when the status c
 - **In Jelly, a tool Atlassian adds is not asked about.** Jelly applies each declared tool's effect and nothing else,
   so an undeclared tool, a write included, runs with the plugin's own default. A Jelly admin can set it to ask.
 
+- **Jelly's settings need a recent Jelly.** The `jelly` settings declare their choices, which a Jelly without app#1301
+  does not read: it refuses the plugin's declaration.
 - Updates are not automatic for a Git install, and `opencode plugin update` and `opencode plugin check` do not work on one: to move to a newer release, remove the old entry and add the new tag.
 
 ## Uninstall
