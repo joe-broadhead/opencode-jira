@@ -8,7 +8,7 @@ interface Options {
   readonly access: Access
 }
 
-const EXAMPLE = `"plugins": [{ "package": "github:joe-broadhead/opencode-jira#v0.0.0", "options": { "access": "ask-changes" } }]`
+const EXAMPLE = `"plugins": [{ "package": "github:joe-broadhead/opencode-jira#v0.0.1", "options": { "access": "ask-changes" } }]`
 const ACCEPTED = {
   allowUntestedHost: "true or false (the default)",
   access: `${ACCESS.map((value) => `"${value}"`).join(", ")}, with "all" the default`,
