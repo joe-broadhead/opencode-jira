@@ -1,6 +1,7 @@
 {
   "name": "@joe-broadhead/opencode-jira",
   "version": "0.0.1",
+  "private": true,
   "description": "Unofficial OpenCode plugin for Jira: find and read work items, boards and sprints, and make selected changes, through Atlassian's official MCP server",
   "keywords": [
     "opencode",
