@@ -8,6 +8,8 @@ restrict it, and [Permissions](#permissions) shows the one option that does.
 
 Unofficial; not affiliated with Atlassian.
 
+Jira is a trademark of Atlassian Pty Ltd; this unofficial plugin is not endorsed by them.
+
 ## Requirements
 
 - OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4, 2.2.5 and 2.2.6. Outside that range the plugin does not start, unless

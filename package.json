@@ -62,7 +62,8 @@
     "vendor": {
       "id": "atlassian",
       "name": "Atlassian",
-      "domain": "atlassian.com"
+      "domain": "atlassian.com",
+      "mark": true
     }
   },
   "scripts": {
