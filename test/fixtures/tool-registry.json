@@ -1,0 +1,15 @@
+{
+  "own": [],
+  "tools": {
+    "getJiraScreen": { "availability": "scope", "reason": "In Atlassian's manage_jira group; the plugin's pinned sign-in asks for no manage:jira:agent-interface scope, so Atlassian does not load it." },
+    "getJiraWorkflowEditorLink": { "availability": "scope", "reason": "In Atlassian's manage_jira group; the plugin's pinned sign-in asks for no manage:jira:agent-interface scope, so Atlassian does not load it." },
+    "getJiraWorkflows": { "availability": "scope", "reason": "In Atlassian's manage_jira group; the plugin's pinned sign-in asks for no manage:jira:agent-interface scope, so Atlassian does not load it." },
+    "createJiraProject": { "availability": "scope", "reason": "Project administration; the plugin's pinned sign-in asks for no admin scope, so Atlassian does not load it. A wider sign-in of the user's own can." },
+    "updateJiraProject": { "availability": "scope", "reason": "Project administration; the plugin's pinned sign-in asks for no admin scope, so Atlassian does not load it. A wider sign-in of the user's own can." },
+    "updateJiraScreen": { "availability": "scope", "reason": "Screen administration; the plugin's pinned sign-in asks for no admin scope, so Atlassian does not load it. A wider sign-in of the user's own can." },
+    "deleteJiraComment": { "availability": "scope", "reason": "A delete; the plugin's pinned sign-in asks for no delete scope, so Atlassian does not load it. A wider sign-in of the user's own can." },
+    "deleteJiraIssue": { "availability": "scope", "reason": "A delete; the plugin's pinned sign-in asks for no delete scope, so Atlassian does not load it. A wider sign-in of the user's own can." },
+    "deleteJiraIssueAttachment": { "availability": "scope", "reason": "A delete; the plugin's pinned sign-in asks for no delete scope, so Atlassian does not load it. A wider sign-in of the user's own can." },
+    "downloadJiraIssueAttachment": { "readOnlyOverride": { "value": false, "reason": "Atlassian marks it read-only, but it returns a short-lived signed URL and a curl command, a credential for the file; the plugin classes it as an export, so read-only denies it and a read-only helper is not given it." } }
+  }
+}

@@ -26,7 +26,8 @@ colours. The README carries the trademark line.
 ## Tools and permissions
 
 55 tools are declared (33 read-only), every tool in `src/jira-tools.ts`: each tool with `allow`, and only the reads
-marked `readOnly`, which is what a read-only helper is allowed to run. Jelly's agents have no base "allow everything"
+marked `readOnly`, which is what a read-only helper is allowed to run. Atlassian serves 46 of them to this plugin's
+sign-in; the other nine are declared with a note, because the pinned scope keeps them out (below). Jelly's agents have no base "allow everything"
 rule, so this plugin's own default rules, which it puts after that rule, never reach them; the declaration is the whole
 posture. A declared `allow` changes nothing in Jelly, which already runs what Jelly's own settings permit.
 
@@ -41,8 +42,27 @@ Every declared tool is allowed, so nothing is switched off for you:
 - `jira_editJiraEntityProperty`, opaque state other Jira apps read.
 - The 14 writes, each of which can email watchers, the assignee, the reporter and anyone the text mentions.
 
-Three of the declared reads, `jira_getJiraWorkflows`, `jira_getJiraWorkflowEditorLink` and `jira_getJiraScreen`, are
-normally absent: the sign-in asks for no `manage_jira` scope, so Atlassian never loads them.
+Nine declared tools are not served under this plugin's sign-in, and each carries a `note` that says so. Atlassian loads
+only the tools a grant covers, and the plugin pins its scope:
+
+- Three reads, `jira_getJiraWorkflows`, `jira_getJiraWorkflowEditorLink` and `jira_getJiraScreen`, sit in Atlassian's
+  `manage_jira` group, and the sign-in asks for no `manage:jira:agent-interface` scope.
+- Six of the destructive class, the three deletes and the three project and screen tools, need a delete or admin scope
+  the sign-in does not ask for.
+
+They stay declared because a sign-in of your own (`mcp.servers.jira` with a wider `oauth.scope`, which `/jira-status`
+reports as wider) can load them, and a declared change is never given to a read-only helper: an undeclared one would
+be. `test/fixtures/tool-registry.json` records each one as scope-gated, with the reason.
+
+`jira_downloadJiraIssueAttachment` is declared not read-only, although Atlassian marks it `readOnlyHint: true`. It
+returns a short-lived signed URL and a curl command, which is a credential for the file, so the plugin classes it as an
+export: `read-only` denies it, `ask-changes` asks, and a read-only helper is not given it. The registry records the
+reason as a `readOnlyOverride`.
+
+`test/unit/live-capture.test.ts` checks the declaration against Atlassian's own tool list for this sign-in, captured
+live on 14 November 2026 in `test/fixtures/live-tools.json` (`provenance.json` says how): every tool Atlassian serves is
+declared, every declared tool is served or recorded as scope-gated with a note, and each `readOnly` is Atlassian's
+`readOnlyHint` or a recorded, stricter override.
 
 A tool Atlassian adds later, a write included, is not declared, so in Jelly it runs with the plugin's own default:
 allowed, even if it changes something, until a new version of this plugin declares it. Atlassian says it adds tools over

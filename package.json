@@ -171,7 +171,8 @@
         "name": "jira.getJiraScreen",
         "permission": "jira_getJiraScreen",
         "effect": "allow",
-        "readOnly": true
+        "readOnly": true,
+        "note": "Not loaded under this plugin's sign-in, which asks for no manage_jira scope. Declared for a sign-in of your own with a wider scope."
       },
       {
         "name": "jira.getJiraUser",
@@ -183,13 +184,15 @@
         "name": "jira.getJiraWorkflowEditorLink",
         "permission": "jira_getJiraWorkflowEditorLink",
         "effect": "allow",
-        "readOnly": true
+        "readOnly": true,
+        "note": "Not loaded under this plugin's sign-in, which asks for no manage_jira scope. Declared for a sign-in of your own with a wider scope."
       },
       {
         "name": "jira.getJiraWorkflows",
         "permission": "jira_getJiraWorkflows",
         "effect": "allow",
-        "readOnly": true
+        "readOnly": true,
+        "note": "Not loaded under this plugin's sign-in, which asks for no manage_jira scope. Declared for a sign-in of your own with a wider scope."
       },
       {
         "name": "jira.listJiraBoardSprints",
@@ -387,25 +390,29 @@
         "name": "jira.createJiraProject",
         "permission": "jira_createJiraProject",
         "effect": "allow",
-        "readOnly": false
+        "readOnly": false,
+        "note": "Not loaded under this plugin's sign-in, which asks for no delete or admin scope. Declared so a wider sign-in of your own stays fenced."
       },
       {
         "name": "jira.deleteJiraComment",
         "permission": "jira_deleteJiraComment",
         "effect": "allow",
-        "readOnly": false
+        "readOnly": false,
+        "note": "Not loaded under this plugin's sign-in, which asks for no delete or admin scope. Declared so a wider sign-in of your own stays fenced."
       },
       {
         "name": "jira.deleteJiraIssue",
         "permission": "jira_deleteJiraIssue",
         "effect": "allow",
-        "readOnly": false
+        "readOnly": false,
+        "note": "Not loaded under this plugin's sign-in, which asks for no delete or admin scope. Declared so a wider sign-in of your own stays fenced."
       },
       {
         "name": "jira.deleteJiraIssueAttachment",
         "permission": "jira_deleteJiraIssueAttachment",
         "effect": "allow",
-        "readOnly": false
+        "readOnly": false,
+        "note": "Not loaded under this plugin's sign-in, which asks for no delete or admin scope. Declared so a wider sign-in of your own stays fenced."
       },
       {
         "name": "jira.editJiraEntityProperty",
@@ -417,13 +424,15 @@
         "name": "jira.updateJiraProject",
         "permission": "jira_updateJiraProject",
         "effect": "allow",
-        "readOnly": false
+        "readOnly": false,
+        "note": "Not loaded under this plugin's sign-in, which asks for no delete or admin scope. Declared so a wider sign-in of your own stays fenced."
       },
       {
         "name": "jira.updateJiraScreen",
         "permission": "jira_updateJiraScreen",
         "effect": "allow",
-        "readOnly": false
+        "readOnly": false,
+        "note": "Not loaded under this plugin's sign-in, which asks for no delete or admin scope. Declared so a wider sign-in of your own stays fenced."
       }
     ],
     "skills": [
