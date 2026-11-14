@@ -4,8 +4,19 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- `test/fixtures/live-tools.json`, Atlassian's tool list for this plugin's sign-in, captured live on 14 November 2026,
+  and a test that fails when the declaration and that list disagree. Atlassian serves 46 of the 55 declared tools.
+
 ### Changed
 
+- Jelly's declaration notes the nine tools the pinned scope keeps out (the three `manage_jira` reads, the three deletes,
+  and the project and screen tools). They stay declared, so a sign-in of your own with a wider scope keeps every change
+  fenced from a read-only helper; `test/fixtures/tool-registry.json` records each as scope-gated, with the reason.
+- `docs/jelly.md` gives the reason `downloadJiraIssueAttachment` is declared not read-only although Atlassian marks it
+  read-only: it returns a signed URL, a credential for the file.
+- The README's sign-out sentence names `opencode mcp logout jira`.
 - The icon is now Jira's own icon, the tile Atlassian publishes in `@atlaskit/logo` (`JiraIcon`), in place of the family's board-of-cards mark; `opencode.vendor.mark` is `true`.
 
 ## [0.0.1] - 2026-11-13
