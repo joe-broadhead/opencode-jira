@@ -67,7 +67,7 @@ you belong to more than one, then names it before every change.
 When the sign-in expires and cannot be renewed, `/connect` marks the Jira account as needing a new sign-in, and
 OpenCode shows its "MCP server needs authentication" notice.
 
-To sign out, or to switch account: Run it from the project folder where the plugin is installed, or remove the account in `/connect` → **Jira**. If it answers `MCP server not found: jira`, OpenCode is still opening that folder: wait a few seconds and run it again. Then sign in again. To sign out before you remove the plugin, see
+To sign out, or to switch account, run `opencode mcp logout jira` from the project folder where the plugin is installed, or remove the account in `/connect` → **Jira**. If it answers `MCP server not found: jira`, OpenCode is still opening that folder: wait a few seconds and run it again. Then sign in again. To sign out before you remove the plugin, see
 [Uninstall](#uninstall).
 
 ## Use

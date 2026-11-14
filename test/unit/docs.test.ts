@@ -138,7 +138,7 @@ describe("docs", () => {
   })
 
   test("keeps the CLI sign-in and sign-out commands, with the folder and cold-start caveat, and /connect first", () => {
-    const caveat = "Run it from the project folder where the plugin is installed, or remove the account in `/connect` → **Jira**. If it answers `MCP server not found: jira`, OpenCode is still opening that folder: wait a few seconds and run it again."
+    const caveat = "To sign out, or to switch account, run `opencode mcp logout jira` from the project folder where the plugin is installed, or remove the account in `/connect` → **Jira**. If it answers `MCP server not found: jira`, OpenCode is still opening that folder: wait a few seconds and run it again."
     expect(text("README.md")).toContain(caveat)
     // `mcp auth` carries the same folder and retry advice.
     expect(text("README.md")).toContain("Run it from the project folder where the plugin is installed; if it answers `MCP server not found: jira`, OpenCode is still opening that folder: wait a few seconds and run it again")
