@@ -6,8 +6,7 @@ JSON, without loading the plugin, when a person reviews the exact version, and u
 Jelly names the plugin **Jira** (`jelly.title`), with the package name and version beneath. Under that name it shows the
 one line in `jelly.summary`, and beside it the mark in `jelly.icon` (`assets/icon.svg`, shipped in the package): Jelly
 reads that file once, when it records the plugin, and keeps it only if it is a clean SVG of drawing elements, with no
-script, style, link or outside reference. The mark is a neutral board of cards on a slate tile, not Atlassian's
-logo. Jelly's declaration contracts drop a top-level key they don't know, and refuse an unknown key inside a tool,
+script, style, link or outside reference. The mark is Jira's own icon, Atlassian's published Jira tile. Jelly's declaration contracts drop a top-level key they don't know, and refuse an unknown key inside a tool,
 sign-in or `contributes` entry, so the section uses only the keys Jelly reads.
 
 ## Icons and the vendor
@@ -19,9 +18,10 @@ The three files are also exported as `./icon.svg`, `./icon-128.png` and `./icon-
 can resolve them from the installed package, and all three are in the published tarball.
 
 `opencode.vendor` names the service behind the plugin: `{ "id": "atlassian", "name": "Atlassian", "domain":
-"atlassian.com" }`. A display app may show the vendor's official logo from the vendor's own site, under
-the vendor's terms, using that domain. The package carries no vendor marks: every shipped file is this
-family's own drawing, not Atlassian's logo, shape or brand colour.
+"atlassian.com", "mark": true }`. `mark: true` says the icon is the vendor's own mark: Jira's icon as Atlassian
+publishes it in its design system's logo package (`@atlaskit/logo`, `JiraIcon`, brand appearance), the white mark on
+the #1868DB tile in its own 24×24 canvas, with the two CSS variables it draws with replaced by their own fallback
+colours. The README carries the trademark line.
 
 ## Tools and permissions
 
