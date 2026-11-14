@@ -30,6 +30,11 @@ const pkg = JSON.parse(readFileSync(new URL("../../package.json", import.meta.ur
 const { jelly } = pkg
 const byPermission = new Map(jelly.tools.map((tool) => [tool.permission, tool]))
 
+/** The declared tools the pinned scope keeps out, from test/fixtures/tool-registry.json. */
+const SCOPE_GATED: Record<string, { availability?: string }> = Object.fromEntries(
+  Object.entries((JSON.parse(readFileSync(new URL("../fixtures/tool-registry.json", import.meta.url), "utf8")) as { tools: Record<string, { availability?: string }> }).tools).filter(([, entry]) => entry.availability === "scope"),
+)
+
 describe("the jelly declaration", () => {
   test("declares every known tool once, every one allowed, and marks the reads read-only", () => {
     for (const tool of READ_TOOLS) expect(byPermission.get(`jira_${tool}`)).toMatchObject({ effect: "allow", readOnly: true })
@@ -47,7 +52,10 @@ describe("the jelly declaration", () => {
     for (const tool of jelly.tools) {
       expect(tool.name).toStartWith(`${SERVER_NAME}.`)
       expect(tool.name.replaceAll(".", "_")).toBe(tool.permission)
-      expect(Object.keys(tool).sort()).toEqual(["effect", "name", "permission", "readOnly"])
+      // A tool the pinned scope keeps out carries a note that says so; no other tool has one.
+      const gated = Boolean(SCOPE_GATED[tool.permission.slice(SERVER_NAME.length + 1)])
+      expect(Object.keys(tool).sort()).toEqual(gated ? ["effect", "name", "note", "permission", "readOnly"] : ["effect", "name", "permission", "readOnly"])
+      if (gated) expect((tool as { note?: string }).note).toStartWith("Not loaded under this plugin's sign-in")
     }
   })
 

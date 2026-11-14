@@ -2,11 +2,23 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.2] - 2026-11-14
+
+### Added
+
+- `test/fixtures/live-tools.json`, Atlassian's tool list for this plugin's sign-in, captured live on 14 November 2026,
+  and a test that fails when the declaration and that list disagree. Atlassian serves 46 of the 55 declared tools.
 
 ### Changed
 
+- Jelly's declaration notes the nine tools the pinned scope keeps out (the three `manage_jira` reads, the three deletes,
+  and the project and screen tools). They stay declared, so a sign-in of your own with a wider scope keeps every change
+  fenced from a read-only helper; `test/fixtures/tool-registry.json` records each as scope-gated, with the reason.
+- `docs/jelly.md` gives the reason `downloadJiraIssueAttachment` is declared not read-only although Atlassian marks it
+  read-only: it returns a signed URL, a credential for the file.
+- The README's sign-out sentence names `opencode mcp logout jira`.
 - The icon is now Jira's own icon, the tile Atlassian publishes in `@atlaskit/logo` (`JiraIcon`), in place of the family's board-of-cards mark; `opencode.vendor.mark` is `true`.
+- OpenCode support is unchanged: `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4, 2.2.5 and 2.2.6.
 
 ## [0.0.1] - 2026-11-13
 
