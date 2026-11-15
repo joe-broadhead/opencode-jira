@@ -159,7 +159,7 @@ export function createJiraPlugin(seam: JiraSeam) {
       // The account and site rows come from the user's own first calls; the plugin never calls Atlassian itself.
       const account = await watchAccount(ctx, () => source?.type === "adopted" && source.signIn === "own", owned)
       const own = skills.map((skill) => ({ id: skill.id, path: skill.path }))
-      const read = () => readStatus(ctx, { ...(source ? { source } : {}), host, problems: [...problems.values()], skills: own, listing, account, access: options.access })
+      const read = () => readStatus(ctx, () => ({ ...(source ? { source } : {}), host, problems: [...problems.values()], skills: own, listing, account, access: options.access }))
       await registerSkills(ctx.skill, skills)
       await registerStatusCommand(ctx, read)
       await registerStatusRpc(ctx.rpc, read)
