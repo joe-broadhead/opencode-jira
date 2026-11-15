@@ -228,8 +228,9 @@ describe("docs", () => {
       }
     }
     for (const file of ["README.md", "AGENTS.md", "SECURITY.md", "docs/configuration.md"]) check(file, raw(file))
-    // The release heading is `## [0.0.0] - <date>` once the release kit has dated it; before that, `- Unreleased`.
-    const changelog = /## \[[\s\S]*?\] - (?:Unreleased|\d{4}-\d{2}-\d{2})\n([\s\S]*?)(?:\n## \[|$)/.exec(raw("CHANGELOG.md"))?.[1] ?? ""
+    // The release heading is `## [0.0.0] - <date>` once the release kit has dated it; before that, `## [Unreleased]`
+    // (or the older `- Unreleased`). Only the first section is read: one heading line, never a span across sections.
+    const changelog = /## \[(?:Unreleased\]|[^\]\n]*\] - (?:Unreleased|\d{4}-\d{2}-\d{2}))\n([\s\S]*?)(?:\n## \[|$)/.exec(raw("CHANGELOG.md"))?.[1] ?? ""
     expect(changelog.length).toBeGreaterThan(0)
     check("CHANGELOG.md (Unreleased)", changelog)
     expect(mentions).toBeGreaterThanOrEqual(2)

@@ -226,10 +226,19 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     const elsewhere = join(ROOT, "elsewhere")
     mkdirSync(elsewhere, { recursive: true })
     const rpc = (host.client.rpc as unknown as (definition: object) => ToolsClient)(TOOLS_CONTRACT)
-    const there = (await rpc.describe!({}, { location: { directory: elsewhere } })) as { location: string }
+    // From OpenCode 2.2.7 a location opened by a call answers before its plugins have loaded: until the plugin has
+    // registered there, the call is rpc.unavailable. Any other error fails the test at once.
+    const loaded = (options: object) =>
+      until("the plugin has loaded in the location", () =>
+        rpc.describe!({}, options).then(
+          (output) => output as { location: string },
+          (error: unknown) => ((error as { type?: unknown })?.type === "rpc.unavailable" ? undefined : Promise.reject(error)),
+        ),
+      )
+    const there = await loaded({ location: { directory: elsewhere } })
     expect(there.location).toBe(elsewhere)
     // Without a location the call reaches the service's default location, which is why a script sends the header.
-    const fallback = (await rpc.describe!({}, {})) as { location: string }
+    const fallback = await loaded({})
     expect(fallback.location).not.toBe(host.location.directory)
   })
 

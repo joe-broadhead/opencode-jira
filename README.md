@@ -12,7 +12,7 @@ Jira is a trademark of Atlassian Pty Ltd; this unofficial plugin is not endorsed
 
 ## Requirements
 
-- OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4, 2.2.5 and 2.2.6. Outside that range the plugin does not start, unless
+- OpenCode `>=2.2.3 <2.4.0`, tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0. Outside that range the plugin does not start, unless
   you set `allowUntestedHost`.
 - macOS or Linux, and a browser for the sign-in.
 - A Jira Cloud site on a plan whose Atlassian Administration allows the Atlassian MCP server.
@@ -435,7 +435,7 @@ Set options with the object form of the plugin entry:
 | Option | Values | Default | Effect |
 | --- | --- | --- | --- |
 | `access` | `"all"`, `"ask-changes"` or `"read-only"` | `"all"` | How much the default rules restrict; see [Permissions](#permissions). |
-| `allowUntestedHost` | `true` or `false` | `false` | Starts on an OpenCode version outside `>=2.2.3 <2.3.0`, with a warning in status. |
+| `allowUntestedHost` | `true` or `false` | `false` | Starts on an OpenCode version outside `>=2.2.3 <2.4.0`, with a warning in status. |
 
 [docs/configuration.md](https://github.com/joe-broadhead/opencode-jira/blob/HEAD/docs/configuration.md) has the
 details, including your own `mcp.servers.jira` entry, an API-token entry for a headless machine, permission recipes and
@@ -491,7 +491,7 @@ Run `/jira-status` first. Its last line is the next step.
 | Rate limited | Atlassian publishes `Retry-After` and `X-RateLimit-*`. Wait the seconds it names, and make fewer calls at once. |
 | The site's email stopped | A free site sends at most 100 notification emails a day, automation included, and an agent can spend them. |
 | Agents without default rules | Put the default rules shown by `/jira-status` first in each listed agent's own permissions, in `opencode.json` or the agent's Markdown file, followed by your top-level rules for Jira tools. |
-| OpenCode: untested | OpenCode is not 2.2.3, 2.2.4, 2.2.5 or 2.2.6. Inside `>=2.2.3 <2.3.0` the plugin runs normally; outside it, it runs only because `allowUntestedHost` is set. If Jira misbehaves, use a tested release. |
+| OpenCode: untested | OpenCode is not 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 or 2.3.0. Inside `>=2.2.3 <2.4.0` the plugin runs normally; outside it, it runs only because `allowUntestedHost` is set. If Jira misbehaves, use a tested release. |
 | Signed in to the wrong Atlassian account | Remove the account in `/connect` → Jira, or run `opencode mcp logout jira` from the project folder; if it answers `MCP server not found: jira`, wait a few seconds and run it again. Then sign in again. |
 | Asked to sign in again after the token expires | The sign-in could not be renewed. Sign in again with `/connect` → Jira; your Atlassian session may still be open in the browser. |
 | A Jira tool is refused in `opencode run` | Nobody could answer its prompt. Add an `allow` rule for that tool to the agent's own `permissions`, or use `access: "all"`. |

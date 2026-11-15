@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- OpenCode 2.3 is admitted: the host range is `>=2.2.3 <2.4.0` (it was `>=2.2.3 <2.3.0`), tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0.
+  The host and pack stages, CI and the release's install check run every one of them. A later 2.2 or 2.3 release
+  starts and status calls it untested; the `HOST_UNTESTED` example host is now 2.4.0.
+- OpenCode 2.3 needs nothing else from this plugin. It does not call the `subagent`
+  tool or read `session.tool.failed`; Jira's tools are Atlassian's MCP tools, which OpenCode runs and stops itself when
+  the person presses Stop; and it has no use for the new `session.fork` hook.
+- The host test of a call that names another location waits until the plugin has loaded there: from OpenCode 2.2.7 a
+  location opened by a call answers `rpc.unavailable` until its plugins have registered.
+
 ## [0.0.2] - 2026-11-14
 
 ### Added
