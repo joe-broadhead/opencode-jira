@@ -135,3 +135,11 @@ export function classify(name: string): ToolClass {
   if (DESTRUCTIVE_TOOLS.includes(name)) return "destructive"
   return "unknown"
 }
+
+/**
+ * The source contract's two method names, as the plugin registers them: `events_list` (a Code Mode tool and a tools RPC
+ * method) and `probe` (a tools RPC method). Written here, not imported, so the status model the terminal UI bundles
+ * stays free of the contract's runtime; a test checks they are the contract's `EVENTS_LIST` and `PROBE`.
+ */
+export const EVENTS_TOOL = "events_list"
+export const PROBE_METHOD = "probe"

@@ -1,7 +1,7 @@
 import type { Plugin } from "@opencode/plugin"
 import { errorText, SERVER_NAME } from "./constants.js"
 import { reasonOf } from "./redact.js"
-import { ALL_TOOLS, classify } from "./jira-tools.js"
+import { ALL_TOOLS, classify, EVENTS_TOOL, PROBE_METHOD, READ_TOOLS } from "./jira-tools.js"
 
 export interface Rule {
   readonly action: string
@@ -31,11 +31,15 @@ const rule = (tool: string, effect: Rule["effect"]): Rule => ({ action: actionOf
  * The block the plugin inserts, generated from the tool table and `access`. Broad first, narrow last, because the last
  * matching rule wins: the namespace pattern covers every Jira tool, including one Jira adds later, and each
  * known tool then gets its class's effect. With `access: "all"` every rule allows; `ask-changes` asks for anything but
- * a read; `read-only` denies anything but a read.
+ * a read; `read-only` denies anything but a read. The source's own reads, `jira_events_list` and `jira_probe` (a tools
+ * RPC method), are always allowed, after the reads.
  */
 export const defaultRules = (access: Access = "all"): Rule[] => [
   rule("*", access === "all" ? "allow" : access === "ask-changes" ? "ask" : "deny"),
-  ...ALL_TOOLS.map((tool) => rule(tool, effectOf(tool, access))),
+  ...READ_TOOLS.map((tool) => rule(tool, effectOf(tool, access))),
+  rule(EVENTS_TOOL, "allow"),
+  rule(PROBE_METHOD, "allow"),
+  ...ALL_TOOLS.filter((tool) => !READ_TOOLS.includes(tool)).map((tool) => rule(tool, effectOf(tool, access))),
 ]
 
 const same = (a: Rule, b: Rule) => a.action === b.action && a.resource === b.resource && a.effect === b.effect

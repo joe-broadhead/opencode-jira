@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
 import { DISPLAY_NAME, SERVER_NAME } from "../../src/constants.js"
-import { DESTRUCTIVE_TOOLS, EXPORT_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
+import { DESTRUCTIVE_TOOLS, EVENTS_TOOL, EXPORT_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
 import { parseOptions } from "../../src/options.js"
 import { ACCESS, defaultRules, evaluate } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
@@ -39,8 +39,10 @@ describe("the jelly declaration", () => {
   test("declares every known tool once, every one allowed, and marks the reads read-only", () => {
     for (const tool of READ_TOOLS) expect(byPermission.get(`jira_${tool}`)).toMatchObject({ effect: "allow", readOnly: true })
     for (const tool of [...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]) expect(byPermission.get(`jira_${tool}`)).toMatchObject({ effect: "allow", readOnly: false })
-    expect(jelly.tools).toHaveLength(READ_TOOLS.length + EXPORT_TOOLS.length + WRITE_TOOLS.length + DESTRUCTIVE_TOOLS.length)
-    expect([...byPermission.keys()].sort()).toEqual([...READ_TOOLS, ...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((tool) => `jira_${tool}`).sort())
+    // The source's own events_list is a Code Mode tool too, a read; probe is a tools RPC method only.
+    expect(byPermission.get(`jira_${EVENTS_TOOL}`)).toMatchObject({ effect: "allow", readOnly: true })
+    expect(jelly.tools).toHaveLength(READ_TOOLS.length + EXPORT_TOOLS.length + WRITE_TOOLS.length + DESTRUCTIVE_TOOLS.length + 1)
+    expect([...byPermission.keys()].sort()).toEqual([...READ_TOOLS, EVENTS_TOOL, ...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((tool) => `jira_${tool}`).sort())
   })
 
   test("each declared effect is what the plugin's own default rules decide for that tool", () => {

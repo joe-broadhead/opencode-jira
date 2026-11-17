@@ -1,5 +1,5 @@
 {
-  "own": [],
+  "own": ["events_list"],
   "tools": {
     "getJiraScreen": { "availability": "scope", "reason": "In Atlassian's manage_jira group; the plugin's pinned sign-in asks for no manage:jira:agent-interface scope, so Atlassian does not load it." },
     "getJiraWorkflowEditorLink": { "availability": "scope", "reason": "In Atlassian's manage_jira group; the plugin's pinned sign-in asks for no manage:jira:agent-interface scope, so Atlassian does not load it." },

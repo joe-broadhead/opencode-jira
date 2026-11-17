@@ -12,6 +12,7 @@ a class: the worst thing that tool can do.
 | `export` | `downloadJiraIssueAttachment` | it mints a short-lived signed URL and a curl command: a file credential, not a read |
 | `write` | the fourteen writes, such as `createJiraIssue`, `editJiraIssue`, `addOrEditJiraIssueComment` and `transitionJiraIssue` | it can email people, as a project's notification scheme decides |
 | `destructive` | `createJiraProject`, `deleteJiraComment`, `deleteJiraIssue`, `deleteJiraIssueAttachment`, `editJiraEntityProperty`, `updateJiraProject`, `updateJiraScreen` | deletes permanently, or changes a project's or a screen's settings for everyone in it |
+| `read` | `events_list` and `probe`, the plugin's own: the `jira.activity` source (below) | they only read, through Jira's own tools |
 | `describe` | none: lists the methods, their class, their permission action, whether OpenCode lists each tool now, each tool's input as JSON Schema, and — given a session — whether that session may call it |
 
 The methods come from the plugin's one tool table, `src/jira-tools.ts`: the known reads (`READ_TOOLS` in
@@ -31,6 +32,31 @@ several sites must pass the right one on every call. The plugin never picks a si
 
 Results hold work items, comments, changelogs and colleagues' names: personal data about the people who wrote them. Keep
 what a script writes where those people would expect it, and only as long as you need it.
+
+## The jira.activity source
+
+`events_list` and `probe` are the source contract's two methods, for a collector such as Memory. `probe` reads
+`atlassianUserInfo` and answers `{ source, account, owner, trust }`; it also records who this sign-in is, which every
+listing names. `events_list` takes `{ since?, cursor?, limit?, account?, source? }` and answers a page of events, oldest
+first, with a `cursor` to pass next time and `more` while there is more now. It reads `getAccessibleAtlassianResources`
+once and searches each Jira site with `searchJiraIssuesUsingJql`, so an allow rule for those two tools is part of a
+script's grant. Its refusals use the contract's codes:
+
+| Code | When |
+| --- | --- |
+| `INPUT_INVALID` | The input has an unknown key, a bad `since`, or a `limit` outside 1 to 500. |
+| `SOURCE_UNKNOWN` | `source` is not `jira`. |
+| `ACCOUNT_MISMATCH` | The `account` is not the signed-in one, or the cursor is another account's. |
+| `CURSOR_INVALID` | The cursor was not issued by this source for this account: start again with `since`. |
+| `NEEDS_SIGN_IN` | The `jira` server needs a sign-in. |
+| `RATE_LIMITED` | Atlassian rate-limited a read: wait, then call again with the same cursor. |
+| `UNAVAILABLE` | No probe has named this sign-in yet, Atlassian failed or answered in a shape the source does not read, the server cannot be called, or the sign-in reaches more than eight Jira sites. |
+
+A listing makes one `getAccessibleAtlassianResources` call and, per Jira site, one `searchJiraIssuesUsingJql` call for
+a page of up to 100 work items: more for a larger `limit` or to walk past a burst of work items updated within a couple
+of minutes, and at most 100 per site. A burst larger than that is passed with `gap: { reason: "window-truncated",
+since }`, which says events from `since` may be missing; the next page carries none. Several updates to one work item
+between two listings are one event, for the latest.
 
 ## A script runs as a session
 

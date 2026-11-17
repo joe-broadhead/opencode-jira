@@ -72,8 +72,9 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
   combine it. `scripts/check-icons.mjs` is the kit's check, copied verbatim, and is the one definition of a safe icon:
   it runs in the `icons` stage of `npm run check`.
 - **TypeScript.** No enums, namespaces or parameter properties. `import type` for types, `.js` in relative imports.
-- **The tools RPC.** `src/host/tools-rpc.ts` is a copy of a module shared by several plugins. Change only its block
-  between the `PLUGIN-SPECIFIC` markers here; change the rest in the shared copy first. Its methods are every known tool
+- **The tools RPC.** The module is the source contract's (`@we-the-rebel-alliance/source-contract/tools-rpc`, bundled
+  into `dist/index.js`); Jira's part is `src/tools-rpc.ts`. Its methods are the source's `events_list` and `probe`
+  (`src/events.ts`), and every known tool
   in `src/jira-tools.ts`, by exact name and with its class, and never an unknown tool. A write, a change of the
   destructive class or a scope-withheld read is a method but runs only on a resolved `allow`; under `access: "all"` the
   default allow is that allow. The withheld reads are unavailable because Atlassian never lists them. Keep the RPC id
@@ -115,8 +116,8 @@ enforces the same wording rules over the shipped docs:
   `permission.ask`;
 - the deprecated `ctx.generate.text` and `experimental.policies`;
 - importing `@opencode/ai`;
-- a permission hook, except the one `permission.hook("evaluate")` in `src/host/tools-rpc.ts` (and the bundle that
-  inlines it), exactly once each: it turns an `ask` on one of the tools RPC's own script calls in flight into a deny,
+- a permission hook, except the one `permission.hook("evaluate")` in the source contract's tools RPC, which the bundle
+  inlines exactly once: it turns an `ask` on one of the tools RPC's own script calls in flight into a deny,
   because no one can answer it, and touches nothing else;
 - references to private host source or host checkouts;
 - machine-local home and temp paths;

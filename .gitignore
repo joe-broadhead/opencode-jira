@@ -5,3 +5,5 @@ dist/
 .env.*
 *.log
 .DS_Store
+# The conformance report npm run conformance writes; the release attaches its own.
+reports/

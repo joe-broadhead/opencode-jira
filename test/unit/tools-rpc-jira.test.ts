@@ -1,11 +1,11 @@
-// Jira's part of the tools RPC: the plugin-specific block of src/host/tools-rpc.ts. The shared part is tested in
-// tools-rpc.test.ts. The methods come from src/jira-tools.ts, the same table the reconcile fixture pins, so replacing
+// Jira's part of the tools RPC: its plugin value in src/tools-rpc.ts. The shared part, the source contract's, is tested
+// in tools-rpc.test.ts. The methods come from src/jira-tools.ts, the same table the reconcile fixture pins, so replacing
 // test/unit/live-tools.json with a signed-in list updates both in one step.
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { DESTRUCTIVE_TOOLS, EXPORT_TOOLS, NOT_GRANTED_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
 import { PLUGIN_ID as JIRA_PLUGIN_ID, SERVER_NAME } from "../../src/constants.js"
-import { METHODS, NEXT_STEPS, PLUGIN_ID, pluginError, shapeInput, shapeResult, TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
+import { METHODS, NEXT_STEPS, PLUGIN_ID, pluginError, shapeInput, shapeResult, TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 import { defaultRules } from "../../src/permissions.js"
 
 interface Recorded {

@@ -17,7 +17,7 @@ import { arch, platform } from "node:os"
 import { basename, join, relative, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 import { ENDPOINT, OAUTH_SCOPE, SUPPORTED_HOST, TESTED_HOSTS } from "../../src/constants.js"
-import { TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
+import { TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 import { DESTRUCTIVE_TOOLS, EXPORT_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
 import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
@@ -328,8 +328,11 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     const { value } = await script("describe", {})
     expect(value.id).toBe(TOOLS_RPC_ID)
     expect(value.locationHint).toContain("x-opencode-directory")
-    expect(value.methods.map((method: { name: string }) => method.name)).toEqual([...READ_TOOLS, ...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS])
-    for (const method of value.methods) {
+    expect(value.methods.map((method: { name: string }) => method.name)).toEqual([...READ_TOOLS, ...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS, "events_list", "probe"])
+    // The source's own reads are plugin methods, available while the server is connected.
+    expect(value.methods.at(-2)).toMatchObject({ name: "events_list", kind: "plugin", class: "read", action: "jira_events_list", available: true })
+    expect(value.methods.at(-1)).toMatchObject({ name: "probe", kind: "plugin", class: "read", action: "jira_probe", available: true })
+    for (const method of value.methods.slice(0, -2)) {
       expect({ name: method.name, kind: method.kind, action: method.action, available: method.available }).toEqual({
         name: method.name,
         kind: "mcp",
@@ -345,7 +348,7 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
   test("with a session, describe reports every method's permission as allow, and the unknown tool as unclassified", async () => {
     const { value } = await script("describe", { sessionID: sessions.build })
     const permission = Object.fromEntries(value.methods.map((method: { name: string; permission: string }) => [method.name, method.permission]))
-    for (const name of [...READ_TOOLS, ...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]) expect({ name, permission: permission[name] }).toEqual({ name, permission: "allow" })
+    for (const name of [...READ_TOOLS, ...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS, "events_list", "probe"]) expect({ name, permission: permission[name] }).toEqual({ name, permission: "allow" })
     expect(value.unclassified).toEqual([NEW_TOOL.name])
   })
 
@@ -410,6 +413,29 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     expect(result.message).toContain("https://api.atlassian.com/a.pdf?[redacted]")
     for (const hidden of ["fake-signature-123", "second line"]) expect(result.message).not.toContain(hidden)
     expect(UPSTREAM_FAILURE).toContain("fake-signature-123")
+  })
+
+  test("the packed source: events_list waits for a probe, probe names the account, and events_list reads through OpenCode", async () => {
+    let from = fake.calls.length
+    const waiting = await call("build", "events_list", {})
+    expect(waiting).toMatchObject({ type: "failed", code: "UNAVAILABLE" })
+    expect(waiting.message).toContain("Next step: Call probe for the jira source")
+    expect(toolCalls(from)).toEqual([])
+    from = fake.calls.length
+    expect((await call("build", "probe", {})).value).toEqual({
+      source: "jira",
+      account: "fake-account-1",
+      owner: { id: "atlassian:fake-account-1", label: "Sam Okafor" },
+      trust: "untrusted",
+    })
+    expect(toolCalls(from)).toEqual(["atlassianUserInfo"])
+    from = fake.calls.length
+    // The fake answers a search with its call, not work items: the listing says so rather than list nothing.
+    const listed = await call("build", "events_list", { account: "fake-account-1" })
+    expect(listed).toMatchObject({ type: "failed", code: "UNAVAILABLE" })
+    expect(listed.message).toContain("Atlassian's searchJiraIssuesUsingJql answered in a shape events_list does not read")
+    expect(toolCalls(from)).toEqual(["getAccessibleAtlassianResources", "searchJiraIssuesUsingJql"])
+    expect(await call("build", "events_list", { account: "someone-else" })).toMatchObject({ type: "failed", code: "ACCOUNT_MISMATCH" })
   })
 
   test("names an unknown session, a session without an agent, and rejects an envelope with extra keys", async () => {

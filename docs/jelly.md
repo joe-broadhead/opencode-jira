@@ -25,9 +25,11 @@ colours. The README carries the trademark line.
 
 ## Tools and permissions
 
-55 tools are declared (33 read-only), every tool in `src/jira-tools.ts`: each tool with `allow`, and only the reads
-marked `readOnly`, which is what a read-only helper is allowed to run. Atlassian serves 46 of them to this plugin's
-sign-in; the other nine are declared with a note, because the pinned scope keeps them out (below). Jelly's agents have no base "allow everything"
+56 tools are declared (34 read-only), every tool in `src/jira-tools.ts` and the plugin's own `jira_events_list`: each
+tool with `allow`, and only the reads marked `readOnly`, which is what a read-only helper is allowed to run. Atlassian
+serves 46 of them to this plugin's sign-in; the other nine are declared with a note, because the pinned scope keeps them
+out (below). `jira_events_list` is the plugin's own read, the `jira.activity` source's events (README, "Jira as a
+source"). Jelly's agents have no base "allow everything"
 rule, so this plugin's own default rules, which it puts after that rule, never reach them; the declaration is the whole
 posture. A declared `allow` changes nothing in Jelly, which already runs what Jelly's own settings permit.
 

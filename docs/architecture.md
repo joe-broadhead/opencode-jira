@@ -2,8 +2,9 @@
 
 The plugin is a thin layer over Atlassian's official MCP server. OpenCode owns the MCP transport, OAuth, credentials,
 permission prompts and tool output limits. The plugin registers the server, names its `/connect` entry, adds default
-permission rules, reports status, ships two skills, and lets scripts call the known reads through a tools RPC. It adds
-no tool of its own, makes no Atlassian call of its own, and has no runtime dependencies.
+permission rules, reports status, ships two skills, and lets scripts call the known reads through a tools RPC. Its one
+tool of its own is the `jira.activity` source's `events_list`, which with `probe` calls Atlassian only when a collector
+or a script calls it. It has no runtime dependencies: the source contract's modules are bundled into `dist/index.js`.
 
 ## Layout
 
@@ -21,7 +22,8 @@ no tool of its own, makes no Atlassian call of its own, and has no runtime depen
 | `src/status.ts` | The status model and text, `/jira-status`, and the status RPC method |
 | `src/redact.ts` | Redaction for everything status shows: URL credentials, queries and token shapes removed, one line, controls and bidi characters stripped, cut by whole characters |
 | `src/skills.ts` | Loading and registering the skills |
-| `src/host/tools-rpc.ts` | The tools RPC for scripts, `jira.issues.tools`; a copy of a module shared by several plugins, with Jira's part in one marked block |
+| `src/tools-rpc.ts` | Jira's part of the tools RPC for scripts, `jira.issues.tools`: the method table, the next steps and the result shaping, which the source contract's `tools-rpc` module takes |
+| `src/events.ts` | The `jira.activity` source: `events_list` (a Code Mode tool and a tools RPC method) and `probe`, on the source contract's `events` and `cursor` modules |
 | `src/tui.ts` | The terminal UI part: the plugin `jira.issues.tui` and the `/jira` dialog |
 | `src/constants.ts` | IDs, the server name and URL, the pinned scope, the Code Mode namespace description, the supported host range, the tested releases (`TESTED_HOSTS`, the one list the checks and status use) and the error shape. No imports, so `scripts/check.mjs` can load it |
 | `src/version.ts` | The plugin's version from `package.json`; the build replaces it with the version string alone |
@@ -100,9 +102,10 @@ shown, and a failure's reason is cut to one line of 160 characters with no URL q
 
 ## Tools RPC
 
-`jira.issues.tools` lets a script call every known tool with no model; [Scripting](scripting.md) is the user's view. Its
-methods are `describe` and one per name in `READ_TOOLS`, `EXPORT_TOOLS`, `WRITE_TOOLS` and `DESTRUCTIVE_TOOLS`, named after the upstream tool,
-each with its class. A tool that Atlassian adds later is never a method. The rules are resolved before dispatch: an
+`jira.issues.tools` lets a script call every known tool with no model; [Scripting](scripting.md) is the user's view. The
+module is the source contract's (`@we-the-rebel-alliance/source-contract/tools-rpc`, bundled), and `src/tools-rpc.ts` is
+Jira's part. Its methods are `describe`, one per name in `READ_TOOLS`, `EXPORT_TOOLS`, `WRITE_TOOLS` and `DESTRUCTIVE_TOOLS`, named after the upstream tool,
+each with its class, and the source's own `events_list` and `probe`. A tool that Atlassian adds later is never a method. The rules are resolved before dispatch: an
 `ask` or a `deny` is refused with no call, and only an `allow` runs. `describe` reports each method's class, and — given
 a session — its permission, and whether OpenCode lists it now; the three reads in `NOT_GRANTED_TOOLS` are available
 only when a grant lists them.

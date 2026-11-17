@@ -41,12 +41,17 @@ const tick = () => new Promise((resolve) => setTimeout(resolve, 5))
 async function watch() {
   const stream = events()
   let after: ((event: unknown) => Promise<void> | void) | undefined
-  const state = { server: "connected" }
-  const account = await watchAccount({
-    tool: { hook: async (_name: string, callback: (event: unknown) => void) => ((after = callback), { dispose: async () => void (after = undefined) }) },
-    mcp: { list: async () => ({ data: [{ name: "jira", status: { status: state.server } }] }) },
-    event: { subscribe: stream.subscribe },
-  } as never)
+  const state = { server: "connected", forgotten: 0 }
+  const account = await watchAccount(
+    {
+      tool: { hook: async (_name: string, callback: (event: unknown) => void) => ((after = callback), { dispose: async () => void (after = undefined) }) },
+      mcp: { list: async () => ({ data: [{ name: "jira", status: { status: state.server } }] }) },
+      event: { subscribe: stream.subscribe },
+    } as never,
+    undefined,
+    undefined,
+    () => void state.forgotten++,
+  )
   stops.push(account.stop)
   return { account, state, stream, after: async (event: unknown) => await after?.(event) }
 }
@@ -119,16 +124,20 @@ describe("watchAccount", () => {
     stream.emit("mcp.status.changed", { server: "other" })
     await tick()
     expect(account.current()).toBeDefined()
+    expect(state.forgotten).toBe(0)
     state.server = "needs_auth"
     stream.emit("mcp.status.changed", { server: "jira" })
     await tick()
     expect(account.current()).toBeUndefined()
+    // Each time, the plugin also forgets who probe named for each sign-in.
+    expect(state.forgotten).toBe(1)
     state.server = "connected"
     await after({ tool: "jira_atlassianUserInfo", status: "completed", result: { output: USER } })
     expect(account.current()).toBeDefined()
     stream.emit("credential.switched")
     await tick()
     expect(account.current()).toBeUndefined()
+    expect(state.forgotten).toBe(2)
   })
 
   test("while any instance signs in with its own API-token entry, a script's read updates no status", async () => {

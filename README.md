@@ -27,18 +27,18 @@ Jira is a trademark of Atlassian Pty Ltd; this unofficial plugin is not endorsed
 ## Install
 
 ```sh
-opencode plugin add github:joe-broadhead/opencode-jira#v0.0.3
+opencode plugin add github:joe-broadhead/opencode-jira#v0.0.4
 ```
 
 Run `opencode reload`, or restart OpenCode. Then run `/jira-status`: it shows `sign-in required` until you sign in
 (see [Sign in](#sign-in)).
 
-Each release has its own tag, and a Git install does not update by itself. To move to a newer release, remove the old entry with `opencode plugin remove github:joe-broadhead/opencode-jira#v0.0.2`, then add the new tag with `opencode plugin add github:joe-broadhead/opencode-jira#v<version>`.
+Each release has its own tag, and a Git install does not update by itself. To move to a newer release, remove the old entry with `opencode plugin remove github:joe-broadhead/opencode-jira#v0.0.3`, then add the new tag with `opencode plugin add github:joe-broadhead/opencode-jira#v<version>`.
 
 Or add the plugin to `opencode.json` instead, with the same spec:
 
 ```json
-{ "plugins": [{ "package": "github:joe-broadhead/opencode-jira#v0.0.3" }] }
+{ "plugins": [{ "package": "github:joe-broadhead/opencode-jira#v0.0.4" }] }
 ```
 
 The plugin registers Atlassian's MCP server under the name `jira`, adds default permission rules, the `/jira-status`
@@ -90,8 +90,9 @@ Every change can email people, so the model says whom it reaches before it makes
 | `/jira`, or "Jira: Status" in the command palette | Opens the same report in a dialog. Press `r` to refresh it and `Esc` to close it. It also refreshes when Jira's connection, the sign-in or the agents change. |
 
 The Account and Sites rows come from your own first calls in a session (`atlassianUserInfo` and
-`getAccessibleAtlassianResources`). The plugin makes no Atlassian call of its own, and shows a display name and site
-names only: never an email address, an account id or a cloud id.
+`getAccessibleAtlassianResources`). Status makes no Atlassian call of its own, and shows a display name and site names
+only: never an email address, an account id or a cloud id. The plugin calls Atlassian itself only when a collector or a
+script calls its source's `events_list` or `probe` (below).
 
 Two skills teach the model to use Jira well:
 
@@ -119,6 +120,46 @@ permission; every Jira call needs a `cloudId` from `getAccessibleAtlassianResour
 
 See [Scripting](https://github.com/joe-broadhead/opencode-jira/blob/HEAD/docs/scripting.md).
 
+### Jira as a source
+
+The plugin is a source under the [source contract](https://github.com/we-the-rebel-alliance/source-contract):
+`package.json`'s `sources` declares `jira.activity`, which a collector such as Memory reads with no model, in Code Mode
+or through the tools RPC.
+
+- `events_list` (`jira_events_list`) lists what changed for you since a cursor, oldest first: one event per work item
+  each time a read finds it updated, for every work item you are assigned, reported or watching, on each Jira site your
+  sign-in reaches. Jira's search sees only a work item's last update, so several updates between two reads are one
+  event, for the latest; a work item that leaves your scope (unassigned, unwatched) is not listed for the update that
+  removed it. Listing every update would take one changelog read per work item, and a changelog holds the field values
+  people wrote, so the source does not read it.
+- `probe` (`jira_probe`, a tools RPC method) names who is signed in, from one `atlassianUserInfo` read: the account is
+  your Atlassian account id (each `:` written `_`), and the owner `atlassian:` and the id. A listing names that account,
+  so a collector probes once after each sign-in; until then `events_list` answers `UNAVAILABLE` and says to probe.
+
+An event carries metadata only: the key and summary as its title, the update time, the assignee and the reporter as
+Jira names them (`atlassian:` and the account id, with the display name), the status, type and priority as its text,
+and the link. Never a description, a comment, an email address or any other field someone wrote: those are colleagues'
+words and can name customers, and anyone who needs them reads the work item with `getJiraIssue`. A work item whose
+summary holds something shaped like a secret is refused for good, and the cursor moves past it.
+
+The cursor holds, for each site, the update time and id of the last work item listed, so two work items updated in the
+same second are each listed once, and it never expires. JQL's own dates are read in your Jira time zone and to the
+minute, so the search names its window in minutes before now (`updated >= "-<n>m"`), a few minutes wider than the
+cursor, and the plugin keeps only what comes after the cursor. A work item is listed once it was updated 5 minutes ago,
+when Jira's search has it. A Jira site missing from one answer keeps its position, so nothing is listed twice when it
+comes back.
+
+Each page of a search is read whole, and the next search opens at the last complete position, so `nextPageToken` is
+followed only to walk past a burst: more than 100 of your work items updated within a couple of minutes, such as a bulk
+change. Such a burst is passed in one call, however long, up to 100 search pages (10,000 work items) for one site; a
+burst larger than that is passed with a `gap` (`window-truncated`) that names where events may be missing, never by
+failing every call.
+
+**Calls per listing:** one `getAccessibleAtlassianResources`, then one `searchJiraIssuesUsingJql` per Jira site for a
+page of up to 100 work items, more for a larger `limit` or a burst, and at most 100 per site. They share your sign-in's
+Atlassian rate limit with the model's own calls; nothing is billed. Both tools run through OpenCode's executors, under
+the same rules as any call, and every `access` value allows `events_list` and `probe`.
+
 ## Permissions
 
 **Every tool is allowed by default.** The plugin adds one block to every agent, right after the agent's base rule that
@@ -133,7 +174,7 @@ There are three ways to restrict it.
 ```json
 {
   "plugins": [
-    { "package": "github:joe-broadhead/opencode-jira#v0.0.3", "options": { "access": "ask-changes" } }
+    { "package": "github:joe-broadhead/opencode-jira#v0.0.4", "options": { "access": "ask-changes" } }
   ]
 }
 ```
@@ -187,6 +228,8 @@ The plugin adds these rules for `access: "all"`:
     { "action": "jira_listJiraStatuses", "resource": "*", "effect": "allow" },
     { "action": "jira_lookupJiraAccountId", "resource": "*", "effect": "allow" },
     { "action": "jira_searchJiraIssuesUsingJql", "resource": "*", "effect": "allow" },
+    { "action": "jira_events_list", "resource": "*", "effect": "allow" },
+    { "action": "jira_probe", "resource": "*", "effect": "allow" },
     { "action": "jira_downloadJiraIssueAttachment", "resource": "*", "effect": "allow" },
     { "action": "jira_addOrEditJiraIssueComment", "resource": "*", "effect": "allow" },
     { "action": "jira_addOrEditJiraIssueWorklog", "resource": "*", "effect": "allow" },
@@ -252,6 +295,8 @@ The plugin adds these rules for `access: "ask-changes"`:
     { "action": "jira_listJiraStatuses", "resource": "*", "effect": "allow" },
     { "action": "jira_lookupJiraAccountId", "resource": "*", "effect": "allow" },
     { "action": "jira_searchJiraIssuesUsingJql", "resource": "*", "effect": "allow" },
+    { "action": "jira_events_list", "resource": "*", "effect": "allow" },
+    { "action": "jira_probe", "resource": "*", "effect": "allow" },
     { "action": "jira_downloadJiraIssueAttachment", "resource": "*", "effect": "ask" },
     { "action": "jira_addOrEditJiraIssueComment", "resource": "*", "effect": "ask" },
     { "action": "jira_addOrEditJiraIssueWorklog", "resource": "*", "effect": "ask" },
@@ -317,6 +362,8 @@ The plugin adds these rules for `access: "read-only"`:
     { "action": "jira_listJiraStatuses", "resource": "*", "effect": "allow" },
     { "action": "jira_lookupJiraAccountId", "resource": "*", "effect": "allow" },
     { "action": "jira_searchJiraIssuesUsingJql", "resource": "*", "effect": "allow" },
+    { "action": "jira_events_list", "resource": "*", "effect": "allow" },
+    { "action": "jira_probe", "resource": "*", "effect": "allow" },
     { "action": "jira_downloadJiraIssueAttachment", "resource": "*", "effect": "deny" },
     { "action": "jira_addOrEditJiraIssueComment", "resource": "*", "effect": "deny" },
     { "action": "jira_addOrEditJiraIssueWorklog", "resource": "*", "effect": "deny" },
@@ -428,7 +475,7 @@ Set options with the object form of the plugin entry:
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-jira#v0.0.3", "options": { "allowUntestedHost": true } }]
+  "plugins": [{ "package": "github:joe-broadhead/opencode-jira#v0.0.4", "options": { "allowUntestedHost": true } }]
 }
 ```
 
@@ -449,7 +496,7 @@ plugin entry in the system config: `/Library/Application Support/opencode/openco
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-jira#v0.0.3" }],
+  "plugins": [{ "package": "github:joe-broadhead/opencode-jira#v0.0.4" }],
   "permissions": [{ "action": "jira_createJiraIssue", "resource": "*", "effect": "deny" }]
 }
 ```
@@ -555,7 +602,7 @@ sign-in stays in OpenCode's credential store.
    where the plugin is installed. If it answers `MCP server not found: jira`, OpenCode is still opening that folder:
    wait a few seconds and run it again.
 2. Check: `opencode auth list` no longer lists **Jira**.
-3. Remove the plugin: `opencode plugin remove github:joe-broadhead/opencode-jira#v0.0.3`, then `opencode reload`.
+3. Remove the plugin: `opencode plugin remove github:joe-broadhead/opencode-jira#v0.0.4`, then `opencode reload`.
    `opencode mcp list` no longer lists `jira`.
 4. Remove any Jira rules you copied into your agents' own `permissions`.
 
