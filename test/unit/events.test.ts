@@ -1,6 +1,6 @@
 // jira.activity: events_list and probe against Atlassian's answers, offline. The conformance kit runs the same reads in
 // test/support/conformance.ts; these tests pin the cursor, the paging, the sites and every refusal.
-import { describe, expect, test } from "bun:test"
+import { beforeEach, describe, expect, test } from "bun:test"
 import { encodeBoundCursor, encodeCursor } from "@we-the-rebel-alliance/source-contract/cursor"
 import { EVENTS_LIST, PROBE, resultProblems } from "@we-the-rebel-alliance/source-contract/events"
 import {
@@ -14,6 +14,8 @@ import {
   MAX_SITES,
   probeMethod,
   reader,
+  SEARCH_PAGE,
+  SEARCH_PAGES,
   SETTLE_MS,
   signedInOf,
   signIns,
@@ -42,6 +44,9 @@ const issue = (id: number, updated: string, summary = `Work item ${id}`): Issue 
 })
 
 /** A fixture with other work items, and the reads it answers, recorded. */
+/** Atlassian's clock, which the fake's `updated >= "-<n>m"` counts back from: a test that reads at another time sets it. */
+const clock = { now: FIXTURE.now }
+
 function fake(issues: Fixture["issues"] = FIXTURE.issues, resources = FIXTURE.resources) {
   const fixture: Fixture = { ...FIXTURE, issues, resources }
   const calls: { tool: string; input: Record<string, unknown> }[] = []
@@ -49,7 +54,7 @@ function fake(issues: Fixture["issues"] = FIXTURE.issues, resources = FIXTURE.re
     calls.push({ tool, input })
     if (tool === "atlassianUserInfo") return { data: fixture.me }
     if (tool === "getAccessibleAtlassianResources") return { data: { resources: fixture.resources } }
-    if (tool === "searchJiraIssuesUsingJql") return { data: searchAnswer(fixture, input) }
+    if (tool === "searchJiraIssuesUsingJql") return { data: searchAnswer({ ...fixture, now: clock.now }, input) }
     throw new Error(`unexpected ${tool}`)
   }
   return { read, calls, searches: () => calls.filter((entry) => entry.tool === "searchJiraIssuesUsingJql") }
@@ -57,13 +62,16 @@ function fake(issues: Fixture["issues"] = FIXTURE.issues, resources = FIXTURE.re
 
 /** Every event and refusal a listing gives, page by page from `input`, and the pages it took. */
 async function drain(read: Read, input: Record<string, unknown>, now = NOW) {
+  clock.now = new Date(now).toISOString()
   const titles: string[] = []
+  const gaps: unknown[] = []
   let page = await jiraEvents(read, SIGNED, input, now)
   let pages = 1
   for (;;) {
     expect(resultProblems(page, typeof input["limit"] === "number" ? input["limit"] : 500, 65_536)).toEqual([])
     titles.push(...page.events.map((event) => event.title), ...(page.refused ?? []).map((entry) => `refused ${entry.external_id}`))
-    if (!page.more) return { titles, cursor: page.cursor, pages }
+    if (page.gap) gaps.push(page.gap)
+    if (!page.more) return { titles, cursor: page.cursor, pages, gaps }
     page = await jiraEvents(read, SIGNED, { ...input, since: undefined, cursor: page.cursor }, now)
     pages++
   }
@@ -77,6 +85,7 @@ describe("the contract's names", () => {
 })
 
 describe("events_list", () => {
+  beforeEach(() => void (clock.now = FIXTURE.now))
   test("lists each work item the person is part of once per update, oldest first, as metadata only", async () => {
     const { read, searches, calls } = fake()
     const page = await jiraEvents(read, SIGNED, { since: "2026-11-12T00:00:00Z" }, NOW)
@@ -120,8 +129,8 @@ describe("events_list", () => {
   test("opens the search a few minutes before the cursor, in minutes before now, whatever the person's time zone", async () => {
     const { read, searches } = fake()
     await jiraEvents(read, SIGNED, { since: "2026-11-13T11:00:00Z" }, NOW)
-    // 60 minutes since, and 5 minutes for the two clocks.
-    expect(windowMinutes(String(searches()[0]!.input["jql"]))).toBe(65)
+    // 60 minutes since, and 2 minutes for the two clocks.
+    expect(windowMinutes(String(searches()[0]!.input["jql"]))).toBe(62)
   })
 
   test("pages by its cursor with no repeat and no gap, two work items updated in the same millisecond included", async () => {
@@ -139,6 +148,7 @@ describe("events_list", () => {
     const later = NOW + 3_600_000
     const updated = { ...FIXTURE.issues[SITE]![0]!, fields: { ...FIXTURE.issues[SITE]![0]!.fields, updated: "2026-11-13T12:10:00.000+0000" } }
     const again = fake({ [SITE]: [...FIXTURE.issues[SITE]!.slice(1), updated] })
+    clock.now = new Date(later).toISOString()
     const page = await jiraEvents(again.read, SIGNED, { cursor: first.cursor }, later)
     expect(page.events.map((event) => event.external_id)).toEqual([`${SITE}/10004@2026-11-13T11:58:00.000Z`, `${SITE}/10001@2026-11-13T12:10:00.000Z`])
   })
@@ -161,7 +171,8 @@ describe("events_list", () => {
     const page = await jiraEvents(read, SIGNED, { since: "2026-11-13T11:00:00Z" }, NOW)
     expect(page).toMatchObject({ events: [], more: false })
     // EX-4, updated at 11:58, is listed once it has settled.
-    const later = await jiraEvents(read, SIGNED, { cursor: page.cursor }, Date.parse("2026-11-13T11:58:00Z") + SETTLE_MS)
+    clock.now = new Date(Date.parse("2026-11-13T11:58:00Z") + SETTLE_MS).toISOString()
+    const later = await jiraEvents(read, SIGNED, { cursor: page.cursor }, Date.parse(clock.now))
     expect(later.events.map((event) => event.title)).toEqual(["EX-4: Write the onboarding guide"])
   })
 
@@ -227,6 +238,93 @@ describe("events_list", () => {
     expect(times[0]).toBe("EX-20: Early")
     expect(times.at(-1)).toBe("EX-21: Late")
     expect(times).toHaveLength(152)
+  })
+
+  /** `count` work items of the person's, updated `stepMs` apart from `start`. */
+  const burst = (count: number, start: string, stepMs: number, first = 50_000) =>
+    Array.from({ length: count }, (_, index) => issue(first + index, new Date(Date.parse(start) + index * stepMs).toISOString().replace("Z", "+0000")))
+  const titlesOf = (items: Issue[]) => items.map((item) => `${item.key}: ${item.fields["summary"]}`)
+
+  test.each([
+    [1200, 50],
+    [5000, 12],
+  ])("drains %i work items updated within one minute, across calls, with no repeat, skip, gap or failure", async (count, stepMs) => {
+    const items = burst(count, "2026-11-12T10:00:00.000Z", stepMs)
+    const { read, searches } = fake({ [SITE]: items })
+    const all = await drain(read, { since: "2026-11-12T00:00:00Z", limit: 100 })
+    expect(all.titles).toEqual(titlesOf(items))
+    expect(all.gaps).toEqual([])
+    expect(all.pages).toBeLessThanOrEqual(count / 100 + 1)
+    // A call walks past what it listed before with the token, never more than SEARCH_PAGES pages.
+    expect(searches().length).toBeLessThanOrEqual(all.pages * SEARCH_PAGES)
+  }, 60_000)
+
+  test("a burst that straddles two reads: what settled is listed first, the rest on a later read, once each", async () => {
+    // 1500 work items 200 ms apart from 11:50:00: the first read, at 11:56:00, sees only those before 11:51:00 settled.
+    const items = burst(1500, "2026-11-13T11:50:00.000Z", 200)
+    const { read } = fake({ [SITE]: items })
+    const first = await drain(read, { since: "2026-11-13T11:00:00Z", limit: 100 }, Date.parse("2026-11-13T11:56:00Z"))
+    expect(first.titles).toEqual(titlesOf(items.filter((item) => jiraTime(item.fields["updated"])! <= Date.parse("2026-11-13T11:51:00Z"))))
+    const second = await drain(read, { cursor: first.cursor, limit: 100 }, Date.parse("2026-11-13T12:10:00Z"))
+    expect([...first.titles, ...second.titles]).toEqual(titlesOf(items))
+    expect([...first.gaps, ...second.gaps]).toEqual([])
+  })
+
+  test("a burst larger than one call can read past is passed with a window-truncated gap, once, and the feed moves on", async () => {
+    // 10,050 work items in one millisecond: more than SEARCH_PAGES pages, none of which can be complete before the next.
+    const jam = Array.from({ length: SEARCH_PAGES * SEARCH_PAGE + 50 }, (_, index) => issue(100_000 + index, "2026-11-12T10:00:00.000+0000"))
+    const after = issue(9, "2026-11-12T11:00:00.000+0000", "After the burst")
+    const { read } = fake({ [SITE]: [...jam, after] })
+    const cursor = encodeBoundCursor(bindingOf(ACCOUNT), { a: ACCOUNT, f: Date.parse("2026-11-12T09:59:00Z"), p: { [SITE]: [Date.parse("2026-11-12T09:59:00Z"), ""] } })
+    const page = await jiraEvents(read, SIGNED, { cursor }, NOW)
+    expect(page.gap).toEqual({ reason: "window-truncated", since: "2026-11-12T09:59:00.000Z" })
+    expect(page).toMatchObject({ events: [], more: true })
+    const next = await jiraEvents(read, SIGNED, { cursor: page.cursor }, NOW)
+    expect(next.gap).toBeUndefined()
+    expect(next.events.map((event) => event.title)).toEqual(["EX-9: After the burst"])
+  }, 60_000)
+
+  test("a work item updated while the pages are read moves no other past the cursor: each search page is read whole", async () => {
+    const items = burst(250, "2026-11-12T08:00:00.000Z", 60_000, 70_000)
+    const state = { [SITE]: [...items] }
+    const { read: base } = fake(state)
+    let searched = 0
+    // After the first search, the first work item is updated again: a search paged by offset would shift by one.
+    const read: Read = async (tool, input) => {
+      const answer = await base(tool, input)
+      if (tool === "searchJiraIssuesUsingJql" && ++searched === 1) {
+        state[SITE]![0] = { ...items[0]!, fields: { ...items[0]!.fields, updated: "2026-11-13T11:59:00.000+0000" } }
+      }
+      return answer
+    }
+    const all = await drain(read, { since: "2026-11-12T00:00:00Z", limit: 500 })
+    // Every settled work item, the moved one at the update the first search saw; its new update waits to settle.
+    expect(all.titles).toEqual(titlesOf(items.filter((item) => jiraTime(item.fields["updated"])! <= NOW - SETTLE_MS)))
+    expect(searched).toBeGreaterThan(1)
+  })
+
+  test("a site missing from one answer keeps its position, and lists nothing again when it comes back", async () => {
+    const both = [...FIXTURE.resources]
+    const { read: full } = fake(FIXTURE.issues, both)
+    const first = await jiraEvents(full, SIGNED, { since: "2026-11-12T00:00:00Z" }, NOW)
+    expect(first.events).toHaveLength(3)
+    const { read: missing } = fake(FIXTURE.issues, [FIXTURE.resources[1]!])
+    const gone = await jiraEvents(missing, SIGNED, { cursor: first.cursor }, NOW)
+    expect(gone.events).toEqual([])
+    const back = await jiraEvents(full, SIGNED, { cursor: gone.cursor }, NOW)
+    expect(back.events).toEqual([])
+  })
+
+  test("a work item Jira sends without an id or update time is left out, not the whole read", async () => {
+    const broken = { id: "77", key: "EX-77", fields: { summary: "No update time" } }
+    const { read } = fake({ [SITE]: [broken as Issue, ...FIXTURE.issues[SITE]!] })
+    const page = await jiraEvents(read, SIGNED, { since: "2026-11-12T00:00:00Z" }, NOW)
+    expect(page.events.map((event) => event.title)).toEqual(["EX-1: Plan the queue migration", "EX-2: Review the release notes", "EX-10: Fix the flaky sign-in test"])
+  })
+
+  test("refuses a scope: the source declares none", async () => {
+    const { read } = fake()
+    await expect(jiraEvents(read, SIGNED, { scope: {} }, NOW)).rejects.toThrow(/^INPUT_INVALID: /)
   })
 
   test("refuses more sites than one cursor follows", async () => {
@@ -371,6 +469,6 @@ describe("conformance", () => {
     expect(reports.map((report) => [report.source, report.ok, report.incomplete, report.problems])).toEqual([["jira.activity", true, false, []]])
     const notApplicable = reports[0]!.checks.filter((check) => check.notApplicable)
     expect(notApplicable.find((check) => check.name === "gap-and-cursor-expired")?.reason).toContain("never expires")
-    expect(notApplicable.find((check) => check.name === "failed-holds-cursor")?.reason).toContain("one call")
+    expect(notApplicable.find((check) => check.name === "failed-holds-cursor")?.reason).toContain("fails the whole events_list")
   })
 })

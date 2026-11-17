@@ -52,6 +52,12 @@ script's grant. Its refusals use the contract's codes:
 | `RATE_LIMITED` | Atlassian rate-limited a read: wait, then call again with the same cursor. |
 | `UNAVAILABLE` | No probe has named this sign-in yet, Atlassian failed or answered in a shape the source does not read, the server cannot be called, or the sign-in reaches more than eight Jira sites. |
 
+A listing makes one `getAccessibleAtlassianResources` call and, per Jira site, one `searchJiraIssuesUsingJql` call for
+a page of up to 100 work items: more for a larger `limit` or to walk past a burst of work items updated within a couple
+of minutes, and at most 100 per site. A burst larger than that is passed with `gap: { reason: "window-truncated",
+since }`, which says events from `since` may be missing; the next page carries none. Several updates to one work item
+between two listings are one event, for the latest.
+
 ## A script runs as a session
 
 Every call names a session, and the session must name an agent. The script runs as that agent, under the rules that

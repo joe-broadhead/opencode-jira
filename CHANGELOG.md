@@ -8,8 +8,9 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - `jira.activity`, a source under the source contract (`@we-the-rebel-alliance/source-contract` v0.2.0, bundled), declared
   in `package.json`'s `sources`: `events_list` (`jira_events_list`, a Code Mode tool and a tools RPC method) lists what
-  changed for the signed-in person since a cursor, oldest first, one event per work item and update, for every work
-  item they are assigned, reported or watching on each Jira site the sign-in reaches; `probe` (`jira_probe`, a tools
+  changed for the signed-in person since a cursor, oldest first, one event per work item each time a read finds it
+  updated (several updates between two reads are one, the latest), for every work item they are assigned, reported or
+  watching on each Jira site the sign-in reaches; `probe` (`jira_probe`, a tools
   RPC method) names who is signed in from one `atlassianUserInfo` read, and records it for that sign-in, which every
   listing then names. Events carry metadata only: the key and summary, the update time, the assignee and reporter as
   Jira names them, the status, type and priority, and the link; never a description, a comment or an email address. A
@@ -17,7 +18,9 @@ All notable changes to this project are documented here. The format follows [Kee
 - The cursor holds each site's last update time and work item id, so work items updated in the same second are each
   listed once; it is bound to the plugin, the source and the account, and never expires. The search names its window
   in minutes before now, which the person's Jira time zone does not change, and a work item is listed once it was
-  updated 5 minutes ago.
+  updated 5 minutes ago. Each search page is read whole and the next search opens at the last complete position;
+  `nextPageToken` only walks past a burst of work items within the window's margin (up to 100 pages a site per call), and
+  a larger burst is passed with a `gap` (`window-truncated`). A site missing from one answer keeps its position.
 - `npm run conformance` (and the `conformance` stage of `npm run check`) runs the source contract's conformance kit over
   `jira.activity` from `test/fixtures/conformance.json` and writes `reports/conformance-report.json`, which a release
   attaches.

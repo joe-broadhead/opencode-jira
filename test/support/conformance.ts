@@ -128,7 +128,7 @@ export async function conformanceReports(fixture: Fixture = FIXTURE): Promise<Co
         describe: { id: sources.rpc },
         atomicPages: {
           reason:
-            "searchJiraIssuesUsingJql answers each page of work items in one call: a work item is listed whole or the call fails, and events_list fails with it, so no single work item can fail on its own",
+            "a listing is one getAccessibleAtlassianResources call and searchJiraIssuesUsingJql pages, each answered whole in one call; any of them failing fails the whole events_list, so no single work item can fail on its own",
         },
         noExpiry: {
           reason: "a cursor holds an update time and a work item id per site, and JQL reads any past update time, so a Jira cursor never expires",

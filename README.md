@@ -127,7 +127,11 @@ The plugin is a source under the [source contract](https://github.com/we-the-reb
 or through the tools RPC.
 
 - `events_list` (`jira_events_list`) lists what changed for you since a cursor, oldest first: one event per work item
-  and update, for every work item you are assigned, reported or watching, on each Jira site your sign-in reaches.
+  each time a read finds it updated, for every work item you are assigned, reported or watching, on each Jira site your
+  sign-in reaches. Jira's search sees only a work item's last update, so several updates between two reads are one
+  event, for the latest; a work item that leaves your scope (unassigned, unwatched) is not listed for the update that
+  removed it. Listing every update would take one changelog read per work item, and a changelog holds the field values
+  people wrote, so the source does not read it.
 - `probe` (`jira_probe`, a tools RPC method) names who is signed in, from one `atlassianUserInfo` read: the account is
   your Atlassian account id (each `:` written `_`), and the owner `atlassian:` and the id. A listing names that account,
   so a collector probes once after each sign-in; until then `events_list` answers `UNAVAILABLE` and says to probe.
@@ -142,10 +146,19 @@ The cursor holds, for each site, the update time and id of the last work item li
 same second are each listed once, and it never expires. JQL's own dates are read in your Jira time zone and to the
 minute, so the search names its window in minutes before now (`updated >= "-<n>m"`), a few minutes wider than the
 cursor, and the plugin keeps only what comes after the cursor. A work item is listed once it was updated 5 minutes ago,
-when Jira's search has it.
+when Jira's search has it. A Jira site missing from one answer keeps its position, so nothing is listed twice when it
+comes back.
 
-Both reads run through OpenCode's executors for Jira's own tools (`getAccessibleAtlassianResources` and
-`searchJiraIssuesUsingJql` for a listing), under the same rules as any call, and every `access` value allows them.
+Each page of a search is read whole, and the next search opens at the last complete position, so `nextPageToken` is
+followed only to walk past a burst: more than 100 of your work items updated within a couple of minutes, such as a bulk
+change. Such a burst is passed in one call, however long, up to 100 search pages (10,000 work items) for one site; a
+burst larger than that is passed with a `gap` (`window-truncated`) that names where events may be missing, never by
+failing every call.
+
+**Calls per listing:** one `getAccessibleAtlassianResources`, then one `searchJiraIssuesUsingJql` per Jira site for a
+page of up to 100 work items, more for a larger `limit` or a burst, and at most 100 per site. They share your sign-in's
+Atlassian rate limit with the model's own calls; nothing is billed. Both tools run through OpenCode's executors, under
+the same rules as any call, and every `access` value allows `events_list` and `probe`.
 
 ## Permissions
 
