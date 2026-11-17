@@ -595,12 +595,17 @@ export interface EventsOptions {
   readonly now?: () => number
 }
 
+/** The `jira` server's state as OpenCode reports it, or undefined when it is not registered or cannot be read. */
+async function serverState({ mcp }: Pick<EventsOptions, "mcp">) {
+  return (await mcp.list().catch(() => undefined))?.data.find((entry) => entry.name === SERVER_NAME)?.status.status
+}
+
 /** The contract's code and next step for a `jira` server that cannot be called now. */
 async function unavailable(options: EventsOptions, tool: string, method: string): Promise<SourceError> {
   if (!options.owned()) {
     return fail("UNAVAILABLE", `The ${SERVER_NAME} MCP server is not Atlassian's, so ${method} does not call its ${tool}`, "Run /jira-status and follow its next step.")
   }
-  const state = (await options.mcp.list().catch(() => undefined))?.data.find((entry) => entry.name === SERVER_NAME)?.status.status
+  const state = await serverState(options)
   if (state === "needs_auth") {
     return fail("NEEDS_SIGN_IN", `Jira needs a sign-in before ${method} can call ${tool}`, "Run /connect and choose Jira, then call it again.")
   }
@@ -691,7 +696,7 @@ export function eventsTool(options: EventsOptions) {
 /** For describe: the contract's code for a server that cannot be called now, as the MCP methods give it. */
 const availability = (options: EventsOptions) => async () => {
   if (!options.owned()) return "SERVER_CONFLICT"
-  const state = (await options.mcp.list().catch(() => undefined))?.data.find((entry) => entry.name === SERVER_NAME)?.status.status
+  const state = await serverState(options)
   if (state === undefined) return "NOT_REGISTERED"
   return state === "connected" ? undefined : ({ needs_auth: "AUTH_REQUIRED", pending: "CONNECTING", failed: "CONNECTION_FAILED", disabled: "DISABLED" } as Record<string, string>)[state]
 }
