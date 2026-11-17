@@ -2,7 +2,8 @@ import { Plugin, type Mcp } from "@opencode/plugin"
 import { reasonOf } from "./redact.js"
 import { errorText, NAMESPACE_DESCRIPTION, OAUTH_SCOPE, PLUGIN_ID, SERVER_NAME } from "./constants.js"
 import { checkHost } from "./host-version.js"
-import { registerToolsRpc, METHODS } from "./host/tools-rpc.js"
+import { registerToolsRpc } from "@we-the-rebel-alliance/source-contract/tools-rpc"
+import { eventsMethod, probeMethod, registerEventsTool, signIns } from "./events.js"
 import { watchIntegration } from "./integration.js"
 import { watchListing } from "./listing.js"
 import { watchAccount } from "./account.js"
@@ -10,6 +11,7 @@ import { parseOptions } from "./options.js"
 import { defaultRules, registerDefaultRules } from "./permissions.js"
 import { loadSkills, registerSkills } from "./skills.js"
 import { readStatus, registerStatusCommand, registerStatusRpc, type ServerSource } from "./status.js"
+import { METHODS, PLUGIN } from "./tools-rpc.js"
 
 /** Internal seam: tests point the server at a loopback fake without OAuth, and at their own skills. */
 interface JiraSeam {
@@ -157,14 +159,30 @@ export function createJiraPlugin(seam: JiraSeam) {
       await registerDefaultRules(ctx.agent, defaultRules(options.access), report("rules"))
       const listing = watchListing(ctx)
       // The account and site rows come from the user's own first calls; the plugin never calls Atlassian itself.
-      const account = await watchAccount(ctx, () => source?.type === "adopted" && source.signIn === "own", owned)
+      // What probe read for each sign-in; forgotten with the account rows on a sign-out or another account.
+      const known = signIns()
+      const account = await watchAccount(ctx, () => source?.type === "adopted" && source.signIn === "own", owned, () => known.clear())
       const own = skills.map((skill) => ({ id: skill.id, path: skill.path }))
       const read = () => readStatus(ctx, () => ({ ...(source ? { source } : {}), host, problems: [...problems.values()], skills: own, listing, account, access: options.access }))
       await registerSkills(ctx.skill, skills)
       await registerStatusCommand(ctx, read)
       await registerStatusRpc(ctx.rpc, read)
-      // Scripts call the known reads with no model, as a session and its agent.
-      const stopTools = await registerToolsRpc(ctx, { methods: METHODS, mcp: { server: SERVER_NAME, managed: () => source?.type !== "conflict" } })
+      // Jira's source (package.json's `sources`): events_list, a Code Mode tool and a tools RPC method, and probe, a
+      // tools RPC method. Both read through OpenCode's own executors for Jira's tools, as the caller.
+      // The sign-in is OpenCode's credential for the server: probe records who it is, and a listing checks against that.
+      const signIn = async () => {
+        const server = (await ctx.mcp.list()).data.find((entry) => entry.name === SERVER_NAME)
+        const connection = server?.integrationID ? await ctx.integration.connection.active(server.integrationID) : undefined
+        return connection?.type === "credential" ? connection.id : undefined
+      }
+      const events = { tool: ctx.tool, mcp: ctx.mcp, permission: ctx.permission, owned, signIn, signIns: known }
+      await registerEventsTool(events)
+      // Scripts call the known tools, events_list and probe with no model, as a session and its agent.
+      const stopTools = await registerToolsRpc(ctx as never, {
+        plugin: PLUGIN,
+        methods: [...METHODS, eventsMethod(events), probeMethod(events)],
+        mcp: { server: SERVER_NAME, managed: () => source?.type !== "conflict" },
+      })
       const stopWatch = watchIntegration(ctx, owned)
       return async () => {
         await stopWatch()

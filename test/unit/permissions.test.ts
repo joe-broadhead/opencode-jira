@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { DESTRUCTIVE_TOOLS, EXPORT_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
+import { DESTRUCTIVE_TOOLS, EVENTS_TOOL, EXPORT_TOOLS, PROBE_METHOD, READ_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
 import { ACCESS, defaultRules, effectOf, evaluate, hasDefaultRules, insertRules, registerDefaultRules, unguardedAgents, type Rule } from "../../src/permissions.js"
 import { agentEditor, allow, builtInAgents, transforms, type AgentEditor, type FakeAgent } from "./fake.js"
 
@@ -15,7 +15,8 @@ describe("defaultRules", () => {
   test("allow everything by default: the namespace pattern, then every tool, reads and changes alike", () => {
     const rules = defaultRules("all")
     expect(rules[0]).toEqual(allowAll("jira_*"))
-    expect(rules.slice(1)).toEqual([...READ_TOOLS, ...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((tool) => allowAll(`jira_${tool}`)))
+    // The reads, the source's own events_list and probe, then the changes.
+    expect(rules.slice(1)).toEqual([...READ_TOOLS, EVENTS_TOOL, PROBE_METHOD, ...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((tool) => allowAll(`jira_${tool}`)))
     expect(effects([allowAll("*"), ...rules])).toEqual(ACTIONS.map(() => "allow"))
   })
 
@@ -23,7 +24,7 @@ describe("defaultRules", () => {
     const rules = defaultRules("ask-changes")
     expect(rules[0]).toEqual(askAll)
     expect(effects([allowAll("*"), ...rules])).toEqual(["allow", "allow", "ask", "ask", "ask", "ask"])
-    for (const tool of READ_TOOLS) expect(evaluate(rules, `jira_${tool}`)).toBe("allow")
+    for (const tool of [...READ_TOOLS, EVENTS_TOOL, PROBE_METHOD]) expect(evaluate(rules, `jira_${tool}`)).toBe("allow")
     for (const tool of [...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]) expect(evaluate(rules, `jira_${tool}`)).toBe("ask")
   })
 

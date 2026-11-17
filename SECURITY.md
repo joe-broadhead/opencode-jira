@@ -26,8 +26,15 @@ OpenCode project.
   query or token.
 - **The account capture keeps a display name and site names, in memory only.** It reads nothing else of
   `atlassianUserInfo` or `getAccessibleAtlassianResources`: no email address, account id, avatar URL, cloud id, app or
-  scope. Both are forgotten when the server needs a new sign-in or the account is switched. The plugin never calls
-  either tool itself, and makes no Atlassian call.
+  scope. Both are forgotten when the server needs a new sign-in or the account is switched. Status never calls either
+  tool itself, and makes no Atlassian call.
+- **The `jira.activity` source reads only when a collector or a script calls it.** `probe` reads `atlassianUserInfo`
+  for the account id, and keeps it in memory for that sign-in, forgotten on a new sign-in or another account.
+  `events_list` reads `getAccessibleAtlassianResources` and `searchJiraIssuesUsingJql` through OpenCode's executors, as
+  the caller, for the work items the person is assigned, reported or watching. Its events carry metadata only: the key
+  and summary, the update time, the assignee's and reporter's account ids and display names, the status, type and
+  priority, and the link. Never a description, a comment or an email address. A summary shaped like a secret is
+  refused, never listed.
 - **Work item content is other people's data.** Descriptions, comments, changelogs, attachments, worklogs and the names
   of colleagues reach the model as tool results, and the agent sends them to your model provider, like any other tool
   result in the session. A Jira site holds plans, incidents and customer names, because that is what teams write in

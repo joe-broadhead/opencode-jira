@@ -174,12 +174,12 @@ describe("setup", () => {
     const commands: string[] = []
     command.run({ add: (definition: { name: string }) => commands.push(definition.name) })
     expect(commands).toEqual(["jira-status"])
-    // Code Mode's catalog describes the jira namespace; the plugin adds no tool of its own.
+    // Code Mode's catalog describes the jira namespace; the plugin's one tool of its own is the source's events_list.
     const namespaces: { name: string; description?: string }[] = []
-    const tools: unknown[] = []
-    tool.run({ namespace: (namespace: { name: string; description?: string }) => void namespaces.push(namespace), add: (info: unknown) => void tools.push(info) } as never)
+    const tools: { name: string; options?: { namespace?: string } }[] = []
+    tool.run({ namespace: (namespace: { name: string; description?: string }) => void namespaces.push(namespace), add: (info: { name: string }) => void tools.push(info) } as never)
     expect(namespaces).toEqual([{ name: "jira", description: NAMESPACE_DESCRIPTION }])
-    expect(tools).toEqual([])
+    expect(tools.map((info) => [info.name, info.options?.namespace])).toEqual([["events_list", "jira"]])
     // The always-visible rules: read the skill, the all-allow default and the sentence before a change, who a change
     // can email, the attachment link as a credential, untrusted text, and where the tools come from.
     for (const words of [

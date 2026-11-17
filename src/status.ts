@@ -2,7 +2,7 @@ import type { Plugin, Rpc } from "@opencode/plugin"
 import { codeText, OAUTH_SCOPE, PLUGIN_ID, SERVER_NAME, TESTED_HOSTS } from "./constants.js"
 import { isSupportedHost, type HostCheck } from "./host-version.js"
 import type { AdoptedScope } from "./plugin.js"
-import { classify, DESTRUCTIVE_TOOLS, NOT_GRANTED_TOOLS, WRITE_TOOLS } from "./jira-tools.js"
+import { classify, DESTRUCTIVE_TOOLS, EVENTS_TOOL, NOT_GRANTED_TOOLS, WRITE_TOOLS } from "./jira-tools.js"
 import type { Account } from "./account.js"
 import { ACCESS, defaultRules, unguardedAgents, type Access, type Rule } from "./permissions.js"
 import { shortReason } from "./redact.js"
@@ -366,7 +366,8 @@ export async function readStatus(ctx: StatusContext, input: ReadFacts | (() => R
     access: access ?? "all",
     ...(server ? { server: server.status } : {}),
     ...(account ? { account } : {}),
-    tools: tools.filter((tool) => tool.options?.namespace === SERVER_NAME).map((tool) => tool.name),
+    // The plugin's own events_list sits in the `jira` namespace too, and is not a tool the server serves.
+    tools: tools.filter((tool) => tool.options?.namespace === SERVER_NAME && tool.name !== EVENTS_TOOL).map((tool) => tool.name),
     settling,
     agents: agents.data,
     ...(own && listed ? { skills: { own, listed } } : {}),

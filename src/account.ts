@@ -131,6 +131,8 @@ export async function watchAccount(
   },
   ownSignIn: () => boolean = () => false,
   owned: () => boolean = () => true,
+  /** Called whenever what was read is forgotten: a sign-out or another account. */
+  forgotten: () => void = () => {},
 ) {
   let account: Account = {}
   const capture = (tool: string, result: Result) => {
@@ -153,14 +155,20 @@ export async function watchAccount(
   // Signed out (the server needs a sign-in again) or another account: what was read no longer holds.
   const check = async () => {
     const server = (await ctx.mcp.list()).data.find((item) => item.name === SERVER_NAME)
-    if (server?.status.status !== "connected" && server?.status.status !== "pending") account = {}
+    if (server?.status.status !== "connected" && server?.status.status !== "pending") {
+      account = {}
+      forgotten()
+    }
   }
   const watching = (async () => {
     while (!stopped.signal.aborted) {
       try {
         const events = ctx.event.subscribe({ types: ["mcp.status.changed", "credential.switched"], signal: stopped.signal })
         for await (const event of events) {
-          if (event.type === "credential.switched") account = {}
+          if (event.type === "credential.switched") {
+            account = {}
+            forgotten()
+          }
           else if (event.data.server === SERVER_NAME) await check().catch(() => undefined)
         }
       } catch {

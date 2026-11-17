@@ -2,6 +2,35 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `jira.activity`, a source under the source contract (`@we-the-rebel-alliance/source-contract` v0.2.0, bundled), declared
+  in `package.json`'s `sources`: `events_list` (`jira_events_list`, a Code Mode tool and a tools RPC method) lists what
+  changed for the signed-in person since a cursor, oldest first, one event per work item and update, for every work
+  item they are assigned, reported or watching on each Jira site the sign-in reaches; `probe` (`jira_probe`, a tools
+  RPC method) names who is signed in from one `atlassianUserInfo` read, and records it for that sign-in, which every
+  listing then names. Events carry metadata only: the key and summary, the update time, the assignee and reporter as
+  Jira names them, the status, type and priority, and the link; never a description, a comment or an email address. A
+  summary shaped like a secret is refused for good.
+- The cursor holds each site's last update time and work item id, so work items updated in the same second are each
+  listed once; it is bound to the plugin, the source and the account, and never expires. The search names its window
+  in minutes before now, which the person's Jira time zone does not change, and a work item is listed once it was
+  updated 5 minutes ago.
+- `npm run conformance` (and the `conformance` stage of `npm run check`) runs the source contract's conformance kit over
+  `jira.activity` from `test/fixtures/conformance.json` and writes `reports/conformance-report.json`, which a release
+  attaches.
+- The default rules allow `jira_events_list` and `jira_probe` under every `access` value; `jira.events_list` is declared
+  in the Jelly block, a read.
+
+### Changed
+
+- The tools RPC is the source contract's `tools-rpc` module, bundled into `dist/index.js`, with Jira's part in
+  `src/tools-rpc.ts`; the copy in `src/host/tools-rpc.ts` and its `check-copies` pin are gone. Scripts call the same
+  `jira.issues.tools` methods, with the same codes.
+- The host range is unchanged, `>=2.2.3 <2.4.0`, tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0.
+
 ## [0.0.3] - 2026-11-15
 
 ### Changed

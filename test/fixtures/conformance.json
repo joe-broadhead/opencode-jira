@@ -1,0 +1,87 @@
+{
+  "$comment": "Atlassian's answers for the source-contract conformance kit (test/support/conformance.ts), offline: atlassianUserInfo, getAccessibleAtlassianResources and searchJiraIssuesUsingJql in the shapes Atlassian's MCP server answers them (view: evidence). No live call is made. Every site, account, name and work item is invented; the signed-in account is a placeholder id. EX-2 and EX-10 were updated in the same millisecond; EX-3's summary holds a secret, so it is refused; EX-4 was updated less than 5 minutes before now, so it waits; EX-5 is older than every case's since.",
+  "now": "2026-11-13T12:00:00.000Z",
+  "me": { "accountId": "712020:00000000-0000-4000-8000-00000000c0de" },
+  "resources": [
+    { "cloudId": "11111111-2222-4333-8444-555555555555", "url": "https://example.atlassian.net", "products": [{ "id": "jira", "access": "read-write" }] },
+    { "cloudId": "99999999-8888-4777-8666-555555555555", "url": "https://example-wiki.atlassian.net", "products": [{ "id": "confluence", "access": "read-write" }] }
+  ],
+  "issues": {
+    "11111111-2222-4333-8444-555555555555": [
+      {
+        "id": "10001",
+        "key": "EX-1",
+        "fields": {
+          "summary": "Plan the queue migration",
+          "updated": "2026-11-12T09:00:00.120+0100",
+          "assignee": { "accountId": "712020:00000000-0000-4000-8000-00000000c0de", "displayName": "Pilot Owner" },
+          "reporter": { "accountId": "5b10ac8d82e05b22cc7d4ef5", "displayName": "Ama Mensah" },
+          "status": { "name": "In Progress", "statusCategory": { "name": "In Progress" } },
+          "issuetype": { "name": "Task" },
+          "priority": { "name": "Medium" }
+        }
+      },
+      {
+        "id": "10002",
+        "key": "EX-2",
+        "fields": {
+          "summary": "Review the release notes",
+          "updated": "2026-11-12T09:30:00.000+0000",
+          "assignee": null,
+          "reporter": { "accountId": "712020:00000000-0000-4000-8000-00000000c0de", "displayName": "Pilot Owner" },
+          "status": { "name": "To Do", "statusCategory": { "name": "To Do" } },
+          "issuetype": { "name": "Story" }
+        }
+      },
+      {
+        "id": "10010",
+        "key": "EX-10",
+        "fields": {
+          "summary": "Fix the flaky sign-in test",
+          "updated": "2026-11-12T09:30:00.000+0000",
+          "assignee": { "accountId": "5b10ac8d82e05b22cc7d4ef6", "displayName": "Kofi Boateng" },
+          "reporter": { "accountId": "712020:00000000-0000-4000-8000-00000000c0de", "displayName": "Pilot Owner" },
+          "status": { "name": "Done", "statusCategory": { "name": "Done" } },
+          "issuetype": { "name": "Bug" },
+          "priority": { "name": "High" }
+        }
+      },
+      {
+        "id": "10003",
+        "key": "EX-3",
+        "fields": {
+          "summary": "The staging password is: Qv7mZr2pLx9T",
+          "updated": "2026-11-12T10:00:00.000+0000",
+          "assignee": { "accountId": "712020:00000000-0000-4000-8000-00000000c0de", "displayName": "Pilot Owner" },
+          "reporter": { "accountId": "5b10ac8d82e05b22cc7d4ef6", "displayName": "Kofi Boateng" },
+          "status": { "name": "To Do", "statusCategory": { "name": "To Do" } },
+          "issuetype": { "name": "Task" }
+        }
+      },
+      {
+        "id": "10004",
+        "key": "EX-4",
+        "fields": {
+          "summary": "Write the onboarding guide",
+          "updated": "2026-11-13T11:58:00.000+0000",
+          "assignee": { "accountId": "712020:00000000-0000-4000-8000-00000000c0de", "displayName": "Pilot Owner" },
+          "reporter": { "accountId": "5b10ac8d82e05b22cc7d4ef5", "displayName": "Ama Mensah" },
+          "status": { "name": "To Do", "statusCategory": { "name": "To Do" } },
+          "issuetype": { "name": "Task" }
+        }
+      },
+      {
+        "id": "10005",
+        "key": "EX-5",
+        "fields": {
+          "summary": "Archive the old dashboards",
+          "updated": "2026-11-01T00:00:00.000+0000",
+          "assignee": null,
+          "reporter": { "accountId": "712020:00000000-0000-4000-8000-00000000c0de", "displayName": "Pilot Owner" },
+          "status": { "name": "Done", "statusCategory": { "name": "Done" } },
+          "issuetype": { "name": "Task" }
+        }
+      }
+    ]
+  }
+}

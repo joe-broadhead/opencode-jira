@@ -16,7 +16,7 @@ import { DESTRUCTIVE_TOOLS, EXPORT_TOOLS, NOT_GRANTED_TOOLS, WRITE_TOOLS } from 
 import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
 import { StatusRpc } from "../../src/status.js"
-import { TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
+import { TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 import { ACCOUNT_READS, ATLASSIAN_ALL_SCOPES, ATLASSIAN_SCOPES, MODEL_ID, READ_A, READ_B } from "./fake-mcp.js"
 import { agentRules, attempt, effect, HOST_VERSION, session, startHost, until, type Host } from "./harness.js"
 
@@ -44,7 +44,8 @@ const hidden = (rules: readonly Rule[], action: string) => {
  */
 const jiraTools = (host: Host) =>
   until("Jira's tools are registered", async () => {
-    const ids = (await host.probe().tool.list()).map((tool) => tool.id).filter((id) => id.startsWith("jira_"))
+    // The server's tools: the plugin's own jira_events_list, the source's, sits in the namespace too.
+    const ids = (await host.probe().tool.list()).map((tool) => tool.id).filter((id) => id.startsWith("jira_") && id !== "jira_events_list")
     return ids.length === 2 + ACCOUNT_READS.length + EXPORT_TOOLS.length + WRITE_TOOLS.length + DESTRUCTIVE_TOOLS.length + 1 && ids.sort()
   })
 
@@ -102,6 +103,8 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     const { data: servers } = await host.client.mcp.list({ location: host.location })
     expect(servers.find((server) => server.name === "jira")?.status).toEqual({ status: "connected" })
     expect(await jiraTools(host)).toEqual([...["shiny_new_tool", READ_A, READ_B, ...ACCOUNT_READS, ...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((tool) => `jira_${tool}`)].sort())
+    // The source's events_list is the plugin's own tool, in the jira namespace.
+    expect((await host.probe().tool.list()).filter((tool) => tool.id === "jira_events_list")).toHaveLength(1)
     const { data: skills } = await host.client.skill.list({ location: host.location })
     expect(skills.map((skill) => skill.id).filter((id) => id.startsWith("jira")).sort()).toEqual([...SKILL_NAMES].sort())
     const { data: commands } = await host.client.command.list({ location: host.location })

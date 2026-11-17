@@ -90,8 +90,9 @@ Every change can email people, so the model says whom it reaches before it makes
 | `/jira`, or "Jira: Status" in the command palette | Opens the same report in a dialog. Press `r` to refresh it and `Esc` to close it. It also refreshes when Jira's connection, the sign-in or the agents change. |
 
 The Account and Sites rows come from your own first calls in a session (`atlassianUserInfo` and
-`getAccessibleAtlassianResources`). The plugin makes no Atlassian call of its own, and shows a display name and site
-names only: never an email address, an account id or a cloud id.
+`getAccessibleAtlassianResources`). Status makes no Atlassian call of its own, and shows a display name and site names
+only: never an email address, an account id or a cloud id. The plugin calls Atlassian itself only when a collector or a
+script calls its source's `events_list` or `probe` (below).
 
 Two skills teach the model to use Jira well:
 
@@ -118,6 +119,33 @@ opencode api post /api/rpc/jira.issues.tools/getAccessibleAtlassianResources \
 permission; every Jira call needs a `cloudId` from `getAccessibleAtlassianResources`.
 
 See [Scripting](https://github.com/joe-broadhead/opencode-jira/blob/HEAD/docs/scripting.md).
+
+### Jira as a source
+
+The plugin is a source under the [source contract](https://github.com/we-the-rebel-alliance/source-contract):
+`package.json`'s `sources` declares `jira.activity`, which a collector such as Memory reads with no model, in Code Mode
+or through the tools RPC.
+
+- `events_list` (`jira_events_list`) lists what changed for you since a cursor, oldest first: one event per work item
+  and update, for every work item you are assigned, reported or watching, on each Jira site your sign-in reaches.
+- `probe` (`jira_probe`, a tools RPC method) names who is signed in, from one `atlassianUserInfo` read: the account is
+  your Atlassian account id (each `:` written `_`), and the owner `atlassian:` and the id. A listing names that account,
+  so a collector probes once after each sign-in; until then `events_list` answers `UNAVAILABLE` and says to probe.
+
+An event carries metadata only: the key and summary as its title, the update time, the assignee and the reporter as
+Jira names them (`atlassian:` and the account id, with the display name), the status, type and priority as its text,
+and the link. Never a description, a comment, an email address or any other field someone wrote: those are colleagues'
+words and can name customers, and anyone who needs them reads the work item with `getJiraIssue`. A work item whose
+summary holds something shaped like a secret is refused for good, and the cursor moves past it.
+
+The cursor holds, for each site, the update time and id of the last work item listed, so two work items updated in the
+same second are each listed once, and it never expires. JQL's own dates are read in your Jira time zone and to the
+minute, so the search names its window in minutes before now (`updated >= "-<n>m"`), a few minutes wider than the
+cursor, and the plugin keeps only what comes after the cursor. A work item is listed once it was updated 5 minutes ago,
+when Jira's search has it.
+
+Both reads run through OpenCode's executors for Jira's own tools (`getAccessibleAtlassianResources` and
+`searchJiraIssuesUsingJql` for a listing), under the same rules as any call, and every `access` value allows them.
 
 ## Permissions
 
@@ -187,6 +215,8 @@ The plugin adds these rules for `access: "all"`:
     { "action": "jira_listJiraStatuses", "resource": "*", "effect": "allow" },
     { "action": "jira_lookupJiraAccountId", "resource": "*", "effect": "allow" },
     { "action": "jira_searchJiraIssuesUsingJql", "resource": "*", "effect": "allow" },
+    { "action": "jira_events_list", "resource": "*", "effect": "allow" },
+    { "action": "jira_probe", "resource": "*", "effect": "allow" },
     { "action": "jira_downloadJiraIssueAttachment", "resource": "*", "effect": "allow" },
     { "action": "jira_addOrEditJiraIssueComment", "resource": "*", "effect": "allow" },
     { "action": "jira_addOrEditJiraIssueWorklog", "resource": "*", "effect": "allow" },
@@ -252,6 +282,8 @@ The plugin adds these rules for `access: "ask-changes"`:
     { "action": "jira_listJiraStatuses", "resource": "*", "effect": "allow" },
     { "action": "jira_lookupJiraAccountId", "resource": "*", "effect": "allow" },
     { "action": "jira_searchJiraIssuesUsingJql", "resource": "*", "effect": "allow" },
+    { "action": "jira_events_list", "resource": "*", "effect": "allow" },
+    { "action": "jira_probe", "resource": "*", "effect": "allow" },
     { "action": "jira_downloadJiraIssueAttachment", "resource": "*", "effect": "ask" },
     { "action": "jira_addOrEditJiraIssueComment", "resource": "*", "effect": "ask" },
     { "action": "jira_addOrEditJiraIssueWorklog", "resource": "*", "effect": "ask" },
@@ -317,6 +349,8 @@ The plugin adds these rules for `access: "read-only"`:
     { "action": "jira_listJiraStatuses", "resource": "*", "effect": "allow" },
     { "action": "jira_lookupJiraAccountId", "resource": "*", "effect": "allow" },
     { "action": "jira_searchJiraIssuesUsingJql", "resource": "*", "effect": "allow" },
+    { "action": "jira_events_list", "resource": "*", "effect": "allow" },
+    { "action": "jira_probe", "resource": "*", "effect": "allow" },
     { "action": "jira_downloadJiraIssueAttachment", "resource": "*", "effect": "deny" },
     { "action": "jira_addOrEditJiraIssueComment", "resource": "*", "effect": "deny" },
     { "action": "jira_addOrEditJiraIssueWorklog", "resource": "*", "effect": "deny" },

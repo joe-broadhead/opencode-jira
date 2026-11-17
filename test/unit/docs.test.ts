@@ -6,8 +6,8 @@ import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { CODES, TESTED_HOSTS, UNTESTED_EXAMPLE } from "../../src/constants.js"
-import { DESTRUCTIVE_TOOLS, EXPORT_TOOLS, PARAMETERS, READ_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
-import { METHODS, NEXT_STEPS, TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
+import { DESTRUCTIVE_TOOLS, EVENTS_TOOL, EXPORT_TOOLS, PARAMETERS, PROBE_METHOD, READ_TOOLS, WRITE_TOOLS } from "../../src/jira-tools.js"
+import { METHODS, NEXT_STEPS, TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 import { ACCESS, defaultRules } from "../../src/permissions.js"
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url))
@@ -22,6 +22,8 @@ const FILES = [
   ...readdirSync(join(ROOT, "skills")).map((name) => `skills/${name}/SKILL.md`),
 ]
 const KNOWN = [...READ_TOOLS, ...EXPORT_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]
+/** What the docs may name besides Jira's tools: the source's own `jira_events_list` and `jira_probe`. */
+const OWN = [EVENTS_TOOL, PROBE_METHOD]
 const raw = (file: string) => readFileSync(join(ROOT, file), "utf8")
 const text = (file: string) => raw(file).replace(/\s+/g, " ")
 /** The per-tool deny the README and the guide give as way 3, for the tool a reader is likeliest to want off. */
@@ -35,13 +37,15 @@ const UPGRADE_FROM = /remove the old entry with `opencode plugin remove github:j
 describe("docs", () => {
   test.each(FILES)("%s states no count of read, write or declared tools that could go stale", (file) => {
     const counts = [...text(file).matchAll(/\b\d+ (?:known )?(?:read|write)(?:s\b| tools\b| read-only)|\b\d+ tools are declared/g)].map((match) => match[0])
-    const stale = counts.filter((count) => !count.startsWith(`${READ_TOOLS.length} read`) && !count.startsWith(`${WRITE_TOOLS.length} write`) && count !== `${KNOWN.length} tools are declared`)
+    // The Jelly guide counts the declaration: every known tool and the plugin's own events_list, a read.
+    const declared = [`${KNOWN.length + 1} tools are declared`, `${READ_TOOLS.length + 1} read-only`]
+    const stale = counts.filter((count) => !count.startsWith(`${READ_TOOLS.length} read`) && !count.startsWith(`${WRITE_TOOLS.length} write`) && count !== `${KNOWN.length} tools are declared` && !declared.includes(count))
     expect(stale).toEqual([])
   })
 
   test.each(FILES)("%s names only Jira tools the plugin knows", (file) => {
     const named = [...text(file).matchAll(/\bjira_([a-zA-Z][A-Za-z0-9]*)(?![\w*])/g)].map((match) => match[1]!)
-    expect(named.filter((tool) => !KNOWN.includes(tool))).toEqual([])
+    expect(named.filter((tool) => !KNOWN.includes(tool) && !OWN.includes(tool))).toEqual([])
   })
 
   test.each(["README.md", "docs/configuration.md", "docs/scripting.md", "docs/jelly.md", "SECURITY.md"])("%s says nothing provisional or pending", (file) => {
@@ -144,7 +148,7 @@ describe("docs", () => {
     expect(text("README.md")).toContain("Run it from the project folder where the plugin is installed; if it answers `MCP server not found: jira`, OpenCode is still opening that folder: wait a few seconds and run it again")
     expect(text("skills/jira/SKILL.md")).toContain("run from the project folder, and if it answers `MCP server not found: jira`, wait a few seconds and run it again")
     // The status next step and the tools RPC's AUTH_REQUIRED name `mcp auth`, so each carries the retry.
-    for (const file of ["src/status.ts", "src/host/tools-rpc.ts"]) {
+    for (const file of ["src/status.ts", "src/tools-rpc.ts"]) {
       expect(text(file)).toContain("run it from the project folder, and if it answers MCP server not found:")
     }
     // The Uninstall offers /connect first, and the CLI from the project folder second.
@@ -303,7 +307,8 @@ describe("docs", () => {
     expect(guide).not.toMatch(/refuses this declaration|accepts no unknown keys/)
     // R18: every declared tool is allowed, and a tool Atlassian adds later is undeclared, so Jelly runs it with the
     // plugin's own default: the guide says so plainly, a write included.
-    expect(guide).toContain(`${KNOWN.length} tools are declared (${READ_TOOLS.length} read-only), every tool in \`src/jira-tools.ts\``)
+    // Every known tool and the plugin's own events_list, a read.
+    expect(guide).toContain(`${KNOWN.length + 1} tools are declared (${READ_TOOLS.length + 1} read-only), every tool in \`src/jira-tools.ts\` and the plugin's own \`jira_events_list\``)
     expect(guide).toContain("A tool Atlassian adds later, a write included, is not declared, so in Jelly it runs with the plugin's own default: allowed")
     const skills = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).jelly.skills as string[]
     expect(guide).toContain(`Declared: ${skills.map((name) => `\`${name}\``).join(", ")}.`)
