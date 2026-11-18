@@ -466,7 +466,10 @@ describe("reading through OpenCode's executors", () => {
 describe("conformance", () => {
   test("the source contract's kit passes jira.activity, with every check that applies run", async () => {
     const reports = await conformanceReports()
-    expect(reports.map((report) => [report.source, report.ok, report.incomplete, report.problems])).toEqual([["jira.activity", true, false, []]])
+    expect(reports.map((report) => [report.source, report.ok, report.incomplete, report.problems])).toEqual([
+      ["jira.activity", true, false, []],
+      ["jira.issues", true, false, []],
+    ])
     const notApplicable = reports[0]!.checks.filter((check) => check.notApplicable)
     expect(notApplicable.find((check) => check.name === "gap-and-cursor-expired")?.reason).toContain("never expires")
     expect(notApplicable.find((check) => check.name === "failed-holds-cursor")?.reason).toContain("fails the whole events_list")
