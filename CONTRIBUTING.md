@@ -6,7 +6,7 @@ Read [AGENTS.md](AGENTS.md) first: it lists the rules for this repository and th
 ## Set up
 
 You need Node.js 22.18 or later, npm, and [Bun](https://bun.sh). CI and the release use Node.js 24 and Bun 1.4.4,
-the Bun inside stock OpenCode 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0.
+the Bun inside stock OpenCode 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2.
 
 ```sh
 npm ci --ignore-scripts
@@ -42,8 +42,8 @@ npm run check
 | `unit` | `bun test ./test/unit`: every module in `src/`, the docs' counts and error table, and the Jelly declaration |
 | `conformance` | `bun scripts/conformance.ts` (`npm run conformance`): the source contract's conformance kit over `jira.activity`, against `test/fixtures/conformance.json`, writing `reports/conformance-report.json`; fails unless the report is ok |
 | `build` | `node scripts/build.mjs`: deletes `dist/` and bundles `src/index.ts` and `src/tui.ts` with esbuild into the self-contained `dist/index.js` and `dist/tui.js`. Fails if a bundle imports anything the host does not provide |
-| `host` | `bun test ./test/host`: the plugin inside an embedded OpenCode host, once on each tested release (`@opencode/sdk` 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0) |
-| `pack` | `bun test ./test/pack`: builds, packs and installs the package, imports both entry points, and loads it in stock OpenCode 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0 |
+| `host` | `bun test ./test/host`: the plugin inside an embedded OpenCode host, once on each tested release (`@opencode/sdk` 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2) |
+| `pack` | `bun test ./test/pack`: builds, packs and installs the package, imports both entry points, and loads it in stock OpenCode 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2 |
 | `forbidden` | `node scripts/check-forbidden.mjs`: scans `src/`, `test/`, `scripts/` and `dist/` for forbidden APIs and machine-local paths |
 | `copies` | `node scripts/check-copies.mjs`: Jelly's setting rules in `test/support/jelly-settings.ts` and the release kit match the copies every plugin carries; the tools RPC is the source contract's, pinned in `package-lock.json` |
 | `lint:actions` | `actionlint` over the workflows, when it is on PATH; CI runs it as its own job |
@@ -59,7 +59,7 @@ node scripts/check.mjs typecheck unit
 Shortcuts: `npm run typecheck`, `npm run build`, `npm test` (the `unit` stage), `npm run test:host`,
 `npm run test:pack` and `npm run lint` (the `forbidden` stage).
 
-`TESTED_HOSTS` in `src/constants.ts` is the one list of tested OpenCode releases: 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0. The host
+`TESTED_HOSTS` in `src/constants.ts` is the one list of tested OpenCode releases: 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2. The host
 and pack stages, status and CI all take their versions from it. Add a release there, and to the README's
 requirements, when every check passes on it.
 
@@ -83,18 +83,19 @@ The pack stage needs network access to the npm registry. It checks that the tarb
 whitelist, with fewer than 30 entries and at most 100 KB; that `dist/` holds only `index.js` and `tui.js`, with no
 relative import, dynamic `import()` or `require()`; and that they import only modules OpenCode provides. It
 installs the tarball next to the host packages that OpenCode 2.2.3 provides and imports both entry points under Bun.
-Then it installs the tarball alone and loads it with `opencode serve` from stock OpenCode 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0. Each server
+Then it installs the tarball alone and loads it with `opencode serve` from stock OpenCode 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2. Each server
 runs offline, in its own temporary home, on its own port with a password. The stage checks that every path in
 `opencode debug paths` is inside that home, that the plugin is active, that the `jira` server and the default rules
 are registered, that `/connect` lists the server as "Jira", and that the status RPC answers. It then points a
 copy of the installed plugin at a local fake of Atlassian's server and calls the tools RPC as a script would.
 
-To use `opencode` binaries you already have, set `OPENCODE_BIN_2_2_3` through `OPENCODE_BIN_2_2_7` and `OPENCODE_BIN_2_3_0`:
+To use `opencode` binaries you already have, set `OPENCODE_BIN_2_2_3` through `OPENCODE_BIN_2_3_2`:
 
 ```sh
 OPENCODE_BIN_2_2_3=/path/to/opencode-2.2.3 OPENCODE_BIN_2_2_4=/path/to/opencode-2.2.4 \
   OPENCODE_BIN_2_2_5=/path/to/opencode-2.2.5 OPENCODE_BIN_2_2_6=/path/to/opencode-2.2.6 \
   OPENCODE_BIN_2_2_7=/path/to/opencode-2.2.7 OPENCODE_BIN_2_3_0=/path/to/opencode-2.3.0 \
+  OPENCODE_BIN_2_3_1=/path/to/opencode-2.3.1 OPENCODE_BIN_2_3_2=/path/to/opencode-2.3.2 \
   node scripts/check.mjs pack
 ```
 
@@ -267,7 +268,7 @@ Before the approval, the workflow:
 - **verifies** on a fresh runner: the commit's identity, one parent on `master`, `package.json` exactly the parent's
   without the lifecycle scripts, only regular files in the allowed paths, no `package.json` under `dist/`, and a second,
   independent build of the parent (its own job) equal to the committed `dist/` byte for byte;
-- **installs** the release commit with `plugin add` on each stock OpenCode host (2.2.3 to 2.2.7, and 2.3.0);
+- **installs** the release commit with `plugin add` on each stock OpenCode host (2.2.3 to 2.3.2);
 - **packs** the commit before installing anything, keeps that tarball and records its sha256, then runs the pack stage
   against a copy;
 - **runs the conformance kit** on the parent, for a plugin that declares sources (above), and uploads only its report;
@@ -329,5 +330,5 @@ Each release has its own tag, and a Git install does not update by itself. To mo
 Or add the plugin to `opencode.json` instead, with the same spec:
 
 ```json
-{ "plugins": [{ "package": "github:joe-broadhead/opencode-jira#v0.0.4" }] }
+{ "plugins": [{ "package": "github:joe-broadhead/opencode-jira#v0.0.5" }] }
 ```
