@@ -44,7 +44,7 @@ typechecks. The package exports `.` (`dist/index.js`) and `./tui` (`dist/tui.js`
 
 1. `parseOptions` validates `allowUntestedHost`; anything else fails with `OPTIONS_INVALID`.
 2. `checkHost` compares `ctx.app.version` with `>=2.2.3 <2.4.0`, the same range as `opencode.host` in `package.json`.
-   Inside it the plugin starts, and status calls only 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0 tested. Outside it, setup fails with
+   Inside it the plugin starts, and status calls only 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2 tested. Outside it, setup fails with
    `HOST_UNTESTED` unless `allowUntestedHost` is set.
 3. The skills are read from the package's `skills/` folder, before the synchronous skill transform needs them.
 4. `ctx.mcp.transform` registers `jira` at Atlassian's URL with the pinned `oauth.scope`, or adopts the user's own entry
