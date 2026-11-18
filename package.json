@@ -104,6 +104,39 @@
         "urlHosts": [
           "*.atlassian.net"
         ]
+      },
+      {
+        "id": "jira.issues",
+        "kind": "snapshot",
+        "tool": "events_list",
+        "input": {
+          "source": "jira",
+          "list": "issues"
+        },
+        "output": "list",
+        "accounts": {
+          "named": false
+        },
+        "permission": {
+          "tool": "jira_events_list",
+          "operations": [
+            "atlassianUserInfo",
+            "getAccessibleAtlassianResources",
+            "searchJiraIssuesUsingJql"
+          ],
+          "identity": [
+            "atlassianUserInfo"
+          ]
+        },
+        "private": true,
+        "cost": {
+          "class": "free"
+        },
+        "maxAgeSec": 900,
+        "maxBytes": 65536,
+        "urlHosts": [
+          "*.atlassian.net"
+        ]
       }
     ]
   },
