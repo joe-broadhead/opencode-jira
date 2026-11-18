@@ -124,7 +124,7 @@ See [Scripting](https://github.com/joe-broadhead/opencode-jira/blob/HEAD/docs/sc
 
 The plugin is a source under the [source contract](https://github.com/we-the-rebel-alliance/source-contract):
 `package.json`'s `sources` declares `jira.activity`, which a collector such as Memory reads with no model, in Code Mode
-or through the tools RPC.
+or through the tools RPC, and `jira.issues`, a list of work items assigned to you (`events_list` with `list` `issues`).
 
 - `events_list` (`jira_events_list`) lists what changed for you since a cursor, oldest first: one event per work item
   each time a read finds it updated, for every work item you are assigned, reported or watching, on each Jira site your
