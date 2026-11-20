@@ -29,7 +29,9 @@ OpenCode project.
   scope. Both are forgotten when the server needs a new sign-in or the account is switched. Status never calls either
   tool itself, and makes no Atlassian call.
 - **The `jira.activity` source reads only when a collector or a script calls it.** `probe` reads `atlassianUserInfo`
-  for the account id, and keeps it in memory for that sign-in, forgotten on a new sign-in or another account.
+  for the account id, and keeps it in memory for that sign-in, forgotten on a new sign-in or another account; a
+  listing that does not know the sign-in yet (after a restart) makes that same read itself, once, and keeps it the same
+  way. It asks for nothing else of the identity and reads no new tool.
   `events_list` reads `getAccessibleAtlassianResources` and `searchJiraIssuesUsingJql` through OpenCode's executors, as
   the caller, for the work items the person is assigned, reported or watching. Its events carry metadata only: the key
   and summary, the update time, the assignee's and reporter's account ids and display names, the status, type and

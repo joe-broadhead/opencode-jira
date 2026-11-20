@@ -121,14 +121,14 @@ export async function conformanceReports(fixture: Fixture = FIXTURE): Promise<Co
   installed()
   const sources = declaredSources()
   const account = accountOf(String(fixture.me["accountId"]))
-  // What probe records, for the one sign-in: a listing checks its account against it, as the plugin does.
+  // What probe or a listing records, for the one sign-in: a listing checks its account against it, as the plugin does.
+  // The run starts as a fresh process does, with nothing recorded: no probe has run, so the first listing reads who is
+  // signed in itself, as it must after a restart of OpenCode (a consumer probes only when it binds).
   const known = signIns()
   const methods = (session: Pick<SessionContext, "permission">) => {
     const options = sourceOptions(fixture, session, [], known)
     return { events: eventsMethod(options), probe: probeMethod(options) }
   }
-  // A consumer probes at bind: the plugin then knows who the sign-in is, and a listing for that account runs.
-  await methods({ permission: { assert: async () => {} } }).probe.run({ source: JIRA_SOURCE }, call())
   const reports: ConformanceReport[] = []
   for (const source of sources.items) {
     if (source.id === "jira.issues") {

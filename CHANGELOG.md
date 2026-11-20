@@ -2,6 +2,32 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **`events_list` works after any restart of OpenCode, with no `probe` before it.** Until now the plugin kept who is
+  signed in only in memory, and only `probe` filled it. A consumer that probes once, when it binds, such as Memory,
+  found every later listing `UNAVAILABLE` ("no probe has named this sign-in's account") after OpenCode started again,
+  a plugin reload, or a second OpenCode process, for good. Now a listing that does not know the sign-in yet makes the
+  one identity read `probe` makes (`atlassianUserInfo`, the declared identity operation, which a collection session
+  already allows), once, keeps the answer for the sign-in as `probe` does, and then runs. The same holds for the
+  `jira.issues` list. The account check is as strict as before: an account other than the signed-in one is
+  `ACCOUNT_MISMATCH`. When Atlassian cannot answer that read, or answers in a shape the plugin does not read, the
+  listing is `UNAVAILABLE`, with its own next step; a refused permission check and a server that cannot be called keep
+  their own errors. A request that is invalid, or a cursor for another account, is still refused before any read.
+  The account is the Atlassian account id and does not depend on a site, so a listing still covers every Jira site the
+  sign-in reaches, as before.
+- **For Memory and every consumer:** `jira.activity` and `jira.issues` now declare `permission.readsIdentity: true`
+  in `package.json`'s `sources`, which the source contract defines for a source whose content reads assert an identity
+  operation (its conformance kit checks the declaration). No operation or rule is added: `atlassianUserInfo` was
+  already in `permission.operations` and `permission.identity`. Because the declaration changed, a consumer that asks
+  to confirm a source asks again. `probe` is unchanged.
+
+### Changed
+
+- The host range is unchanged, `>=2.2.3 <2.4.0`, and this release is tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2.
+
 ## [0.0.6] - 2026-11-20
 
 ### Added

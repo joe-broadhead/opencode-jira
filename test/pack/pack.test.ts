@@ -415,12 +415,17 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     expect(UPSTREAM_FAILURE).toContain("fake-signature-123")
   })
 
-  test("the packed source: events_list waits for a probe, probe names the account, and events_list reads through OpenCode", async () => {
+  test("the packed source: events_list with no probe reads who is signed in itself, probe names the same account, and events_list reads through OpenCode", async () => {
     let from = fake.calls.length
-    const waiting = await call("build", "events_list", {})
-    expect(waiting).toMatchObject({ type: "failed", code: "UNAVAILABLE" })
-    expect(waiting.message).toContain("Next step: Call probe for the jira source")
-    expect(toolCalls(from)).toEqual([])
+    // No probe has run in this process: another account than the signed-in one is refused after the one identity read.
+    expect(await call("build", "events_list", { account: "someone-else" })).toMatchObject({ type: "failed", code: "ACCOUNT_MISMATCH" })
+    expect(toolCalls(from)).toEqual(["atlassianUserInfo"])
+    from = fake.calls.length
+    // The same listing for the signed-in account reads on, here to the fake's answer to a search, which is not work items.
+    const first = await call("build", "events_list", { account: "fake-account-1" })
+    expect(first).toMatchObject({ type: "failed", code: "UNAVAILABLE" })
+    expect(first.message).toContain("Atlassian's searchJiraIssuesUsingJql answered in a shape events_list does not read")
+    expect(toolCalls(from)).toEqual(["getAccessibleAtlassianResources", "searchJiraIssuesUsingJql"])
     from = fake.calls.length
     expect((await call("build", "probe", {})).value).toEqual({
       source: "jira",

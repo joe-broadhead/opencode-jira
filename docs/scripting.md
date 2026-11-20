@@ -37,11 +37,13 @@ what a script writes where those people would expect it, and only as long as you
 
 `events_list` and `probe` are the source contract's two methods, for a collector such as Memory. `probe` reads
 `atlassianUserInfo` and answers `{ source, account, owner, trust }`; it also records who this sign-in is, which every
-listing names. `events_list` takes `{ since?, cursor?, limit?, account?, source?, list? }` and answers a page of events, oldest
+listing names. A listing needs no probe before it: when the plugin does not know who is signed in yet (after a start of
+OpenCode, or a new sign-in, since it keeps this in memory only), the listing makes the same `atlassianUserInfo` read
+itself, once, and keeps the answer, so a call that names another `account` is still `ACCOUNT_MISMATCH`. `events_list` takes `{ since?, cursor?, limit?, account?, source?, list? }` and answers a page of events, oldest
 first, with a `cursor` to pass next time and `more` while there is more now. With `list` `issues` it answers the
 `jira.issues` list snapshot instead, for an app that renders one, described below. It reads `getAccessibleAtlassianResources`
-once and searches each Jira site with `searchJiraIssuesUsingJql`, so an allow rule for those two tools is part of a
-script's grant. Its refusals use the contract's codes:
+once and searches each Jira site with `searchJiraIssuesUsingJql`, so an allow rule for those two tools, and for
+`atlassianUserInfo`, is part of a script's grant. Its refusals use the contract's codes:
 
 | Code | When |
 | --- | --- |
@@ -51,7 +53,7 @@ script's grant. Its refusals use the contract's codes:
 | `CURSOR_INVALID` | The cursor was not issued by this source for this account: start again with `since`. |
 | `NEEDS_SIGN_IN` | The `jira` server needs a sign-in. |
 | `RATE_LIMITED` | Atlassian rate-limited a read: wait, then call again with the same cursor. |
-| `UNAVAILABLE` | No probe has named this sign-in yet, Atlassian failed or answered in a shape the source does not read, the server cannot be called, or the sign-in reaches more than eight Jira sites. |
+| `UNAVAILABLE` | Atlassian failed or answered in a shape the source does not read (the identity read included), the server cannot be called, or the sign-in reaches more than eight Jira sites. |
 
 A listing makes one `getAccessibleAtlassianResources` call and, per Jira site, one `searchJiraIssuesUsingJql` call for
 a page of up to 100 work items: more for a larger `limit` or to walk past a burst of work items updated within a couple
@@ -71,8 +73,8 @@ fit, whole items would be dropped from its end and it would say `shortened: true
 
 **It is not a model tool.** `jira_events_list`, the tool a model sees, takes no `list` and never answers a list: the
 method declares `list` in its input and both answers in its output, and the tool declares neither. It asserts
-`jira_events_list` and reads the same two Atlassian tools as the activity feed, and it needs a probe first, like a
-listing, to know which account is signed in.
+`jira_events_list` and reads the same two Atlassian tools as the activity feed, and, like a listing, it reads who is
+signed in itself when the plugin does not know yet, so it needs no probe first.
 
 ## A script runs as a session
 

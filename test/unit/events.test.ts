@@ -40,6 +40,8 @@ const SITE = "11111111-2222-4333-8444-555555555555"
 const OTHER_SITE = "22222222-2222-4333-8444-555555555555"
 /** Who probe named for the sign-in. */
 const SIGNED = signedInOf(FIXTURE.me)
+/** What a listing is given to ask who is signed in: the answer a probe would have kept. */
+const signed = async () => SIGNED
 
 type Issue = Fixture["issues"][string][number]
 
@@ -71,14 +73,14 @@ async function drain(read: Read, input: Record<string, unknown>, now = NOW) {
   clock.now = new Date(now).toISOString()
   const titles: string[] = []
   const gaps: unknown[] = []
-  let page = await jiraEvents(read, SIGNED, input, now)
+  let page = await jiraEvents(read, signed, input, now)
   let pages = 1
   for (;;) {
     expect(resultProblems(page, typeof input["limit"] === "number" ? input["limit"] : 500, 65_536)).toEqual([])
     titles.push(...page.events.map((event) => event.title), ...(page.refused ?? []).map((entry) => `refused ${entry.external_id}`))
     if (page.gap) gaps.push(page.gap)
     if (!page.more) return { titles, cursor: page.cursor, pages, gaps }
-    page = await jiraEvents(read, SIGNED, { ...input, since: undefined, cursor: page.cursor }, now)
+    page = await jiraEvents(read, signed, { ...input, since: undefined, cursor: page.cursor }, now)
     pages++
   }
 }
@@ -94,7 +96,7 @@ describe("events_list", () => {
   beforeEach(() => void (clock.now = FIXTURE.now))
   test("lists each work item the person is part of once per update, oldest first, as metadata only", async () => {
     const { read, searches, calls } = fake()
-    const page = await jiraEvents(read, SIGNED, { since: "2026-11-12T00:00:00Z" }, NOW)
+    const page = await jiraEvents(read, signed, { since: "2026-11-12T00:00:00Z" }, NOW)
     expect(page.events.map((event) => event.title)).toEqual(["EX-1: Plan the queue migration", "EX-2: Review the release notes", "EX-10: Fix the flaky sign-in test"])
     expect(page).toMatchObject({ source: "jira", account: ACCOUNT, owner: { id: `atlassian:${ME}`, label: ME }, more: false, trust: "untrusted", plugin: "@joe-broadhead/opencode-jira" })
     const [first] = page.events
@@ -117,7 +119,7 @@ describe("events_list", () => {
     expect(JSON.stringify(page)).not.toContain("EX-4")
     // Only the Jira site is searched, for the person's own work items, in minutes before now, oldest first.
     expect(searches().map((entry) => entry.input["cloudId"])).toEqual([SITE])
-    // The listing reads the sites and searches; who is signed in is probe's read alone.
+    // The listing reads the sites and searches; who is signed in is given to it, not read here.
     expect(calls.map((entry) => entry.tool)).toEqual(["getAccessibleAtlassianResources", "searchJiraIssuesUsingJql"])
     const jql = String(searches()[0]!.input["jql"])
     expect(jql.startsWith(`${INVOLVES} AND updated >= "-`)).toBe(true)
@@ -128,13 +130,13 @@ describe("events_list", () => {
   test("never carries a description, a comment or an email address", async () => {
     const withBody = { ...issue(7, "2026-11-12T11:00:00.000+0000"), fields: { ...issue(7, "2026-11-12T11:00:00.000+0000").fields, description: "Customer Acme's outage", comment: { comments: [{ body: "internal note" }] } } }
     const { read } = fake({ [SITE]: [withBody] })
-    const text = JSON.stringify(await jiraEvents(read, SIGNED, { since: "2026-11-12T00:00:00Z" }, NOW))
+    const text = JSON.stringify(await jiraEvents(read, signed, { since: "2026-11-12T00:00:00Z" }, NOW))
     for (const word of ["Acme", "internal note", "pilot@example.com"]) expect(text).not.toContain(word)
   })
 
   test("opens the search a few minutes before the cursor, in minutes before now, whatever the person's time zone", async () => {
     const { read, searches } = fake()
-    await jiraEvents(read, SIGNED, { since: "2026-11-13T11:00:00Z" }, NOW)
+    await jiraEvents(read, signed, { since: "2026-11-13T11:00:00Z" }, NOW)
     // 60 minutes since, and 2 minutes for the two clocks.
     expect(windowMinutes(String(searches()[0]!.input["jql"]))).toBe(62)
   })
@@ -145,17 +147,17 @@ describe("events_list", () => {
     expect(all.titles).toEqual(["EX-1: Plan the queue migration", "EX-2: Review the release notes", "EX-10: Fix the flaky sign-in test", `refused ${SITE}/10003@2026-11-12T10:00:00.000Z`])
     expect(all.pages).toBe(3)
     // The last cursor lists nothing more, until a work item changes again.
-    expect((await jiraEvents(read, SIGNED, { cursor: all.cursor }, NOW)).events).toEqual([])
+    expect((await jiraEvents(read, signed, { cursor: all.cursor }, NOW)).events).toEqual([])
   })
 
   test("lists a work item again when it is updated again, with a new id, and nothing it listed before", async () => {
     const { read } = fake()
-    const first = await jiraEvents(read, SIGNED, { since: "2026-11-12T00:00:00Z" }, NOW)
+    const first = await jiraEvents(read, signed, { since: "2026-11-12T00:00:00Z" }, NOW)
     const later = NOW + 3_600_000
     const updated = { ...FIXTURE.issues[SITE]![0]!, fields: { ...FIXTURE.issues[SITE]![0]!.fields, updated: "2026-11-13T12:10:00.000+0000" } }
     const again = fake({ [SITE]: [...FIXTURE.issues[SITE]!.slice(1), updated] })
     clock.now = new Date(later).toISOString()
-    const page = await jiraEvents(again.read, SIGNED, { cursor: first.cursor }, later)
+    const page = await jiraEvents(again.read, signed, { cursor: first.cursor }, later)
     expect(page.events.map((event) => event.external_id)).toEqual([`${SITE}/10004@2026-11-13T11:58:00.000Z`, `${SITE}/10001@2026-11-13T12:10:00.000Z`])
   })
 
@@ -163,7 +165,7 @@ describe("events_list", () => {
     // 250 work items, 120 of them in one second: more than one search page, and a page that ends inside a second.
     const items = Array.from({ length: 250 }, (_, index) => issue(1000 + index, index < 120 ? "2026-11-12T10:00:00.000+0000" : `2026-11-12T11:${String(Math.floor((index - 120) / 3)).padStart(2, "0")}:00.000+0000`))
     const { read, searches } = fake({ [SITE]: items })
-    const first = await jiraEvents(read, SIGNED, { since: "2026-11-12T00:00:00Z", limit: 50 }, NOW)
+    const first = await jiraEvents(read, signed, { since: "2026-11-12T00:00:00Z", limit: 50 }, NOW)
     // The first search page ends in the second the 120 share: the next page is read before any of them is listed.
     expect(searches().map((entry) => entry.input["nextPageToken"])).toEqual([undefined, "100"])
     expect(first.events).toHaveLength(50)
@@ -174,25 +176,25 @@ describe("events_list", () => {
 
   test("an empty page still carries a cursor that reads on", async () => {
     const { read } = fake()
-    const page = await jiraEvents(read, SIGNED, { since: "2026-11-13T11:00:00Z" }, NOW)
+    const page = await jiraEvents(read, signed, { since: "2026-11-13T11:00:00Z" }, NOW)
     expect(page).toMatchObject({ events: [], more: false })
     // EX-4, updated at 11:58, is listed once it has settled.
     clock.now = new Date(Date.parse("2026-11-13T11:58:00Z") + SETTLE_MS).toISOString()
-    const later = await jiraEvents(read, SIGNED, { cursor: page.cursor }, Date.parse(clock.now))
+    const later = await jiraEvents(read, signed, { cursor: page.cursor }, Date.parse(clock.now))
     expect(later.events.map((event) => event.title)).toEqual(["EX-4: Write the onboarding guide"])
   })
 
   test("a cursor never expires: one a year old reads on, with no gap", async () => {
     const { read } = fake()
     const old = encodeBoundCursor(bindingOf(ACCOUNT), { a: ACCOUNT, f: NOW - 365 * 86_400_000, p: { [SITE]: [NOW - 365 * 86_400_000, "1"] } })
-    const page = await jiraEvents(read, SIGNED, { cursor: old }, NOW)
+    const page = await jiraEvents(read, signed, { cursor: old }, NOW)
     expect(page.gap).toBeUndefined()
     expect(page.events[0]!.title).toBe("EX-5: Archive the old dashboards")
   })
 
   test("refuses a cursor it did not issue for this account, before any search", async () => {
     const { read, searches } = fake()
-    const refusal = (input: Record<string, unknown>) => jiraEvents(read, SIGNED, input, NOW).then(() => "answered", (error: Error) => error.message)
+    const refusal = (input: Record<string, unknown>) => jiraEvents(read, signed, input, NOW).then(() => "answered", (error: Error) => error.message)
     // An earlier cursor version, another source's, a broken one, and one with a bad position.
     expect(await refusal({ cursor: encodeCursor("jira", { a: ACCOUNT }) })).toStartWith("CURSOR_INVALID: ")
     expect(await refusal({ cursor: encodeBoundCursor({ plugin: "linear", source: "linear", account: ACCOUNT }, { a: ACCOUNT, f: 0, p: {} }) })).toStartWith("CURSOR_INVALID: ")
@@ -203,22 +205,21 @@ describe("events_list", () => {
     expect(searches()).toEqual([])
   })
 
-  test("never asks who is signed in: without a probe it waits for one, and it refuses another account before any read", async () => {
+  test("refuses another account before any read of its own, and another account's cursor before any read at all", async () => {
     const { read, calls } = fake()
-    await expect(jiraEvents(read, undefined, { since: "2026-11-12T00:00:00Z" }, NOW)).rejects.toThrow(/^UNAVAILABLE: The plugin does not know yet who is signed in to Jira.*Next step: Call probe for the jira source/)
-    await expect(jiraEvents(read, SIGNED, { account: "someone" }, NOW)).rejects.toThrow(/^ACCOUNT_MISMATCH: Jira is signed in to another Atlassian account than "someone"/)
+    await expect(jiraEvents(read, signed, { account: "someone" }, NOW)).rejects.toThrow(/^ACCOUNT_MISMATCH: Jira is signed in to another Atlassian account than "someone"/)
     expect(calls).toEqual([])
     const cursor = encodeBoundCursor(bindingOf(ACCOUNT), { a: ACCOUNT, f: 0, p: {} })
-    await expect(jiraEvents(read, SIGNED, { account: "someone", cursor }, NOW)).rejects.toThrow(/^ACCOUNT_MISMATCH: The cursor is for another Atlassian account/)
+    await expect(jiraEvents(read, signed, { account: "someone", cursor }, NOW)).rejects.toThrow(/^ACCOUNT_MISMATCH: The cursor is for another Atlassian account/)
     expect(calls).toEqual([])
-    expect((await jiraEvents(read, SIGNED, { account: ACCOUNT, since: "2026-11-12T00:00:00Z" }, NOW)).account).toBe(ACCOUNT)
+    expect((await jiraEvents(read, signed, { account: ACCOUNT, since: "2026-11-12T00:00:00Z" }, NOW)).account).toBe(ACCOUNT)
   })
 
   test("refuses an invalid input and another source with the contract's codes", async () => {
     const { read, calls } = fake()
-    await expect(jiraEvents(read, SIGNED, { limit: 0 }, NOW)).rejects.toThrow(/^INPUT_INVALID: /)
-    await expect(jiraEvents(read, SIGNED, { scope: { project: ["EX"] } }, NOW)).rejects.toThrow(/^INPUT_INVALID: /)
-    await expect(jiraEvents(read, SIGNED, { source: "linear" }, NOW)).rejects.toThrow(/^SOURCE_UNKNOWN: /)
+    await expect(jiraEvents(read, signed, { limit: 0 }, NOW)).rejects.toThrow(/^INPUT_INVALID: /)
+    await expect(jiraEvents(read, signed, { scope: { project: ["EX"] } }, NOW)).rejects.toThrow(/^INPUT_INVALID: /)
+    await expect(jiraEvents(read, signed, { source: "linear" }, NOW)).rejects.toThrow(/^SOURCE_UNKNOWN: /)
     expect(calls).toEqual([])
   })
 
@@ -236,7 +237,7 @@ describe("events_list", () => {
     const issues = { [SITE]: busy, [OTHER_SITE]: [issue(20, "2026-11-12T09:00:00.000+0000", "Early"), issue(21, "2026-11-12T11:30:00.000+0000", "Late")] }
     const resources = [FIXTURE.resources[0]!, { cloudId: OTHER_SITE, url: "https://other.atlassian.net" }]
     const { read } = fake(issues, resources)
-    const first = await jiraEvents(read, SIGNED, { since: "2026-11-12T00:00:00Z", limit: 120 }, NOW)
+    const first = await jiraEvents(read, signed, { since: "2026-11-12T00:00:00Z", limit: 120 }, NOW)
     expect(first.events.map((event) => event.title)).not.toContain("EX-21: Late")
     expect(first.more).toBe(true)
     const all = await drain(read, { since: "2026-11-12T00:00:00Z", limit: 120 })
@@ -282,10 +283,10 @@ describe("events_list", () => {
     const after = issue(9, "2026-11-12T11:00:00.000+0000", "After the burst")
     const { read } = fake({ [SITE]: [...jam, after] })
     const cursor = encodeBoundCursor(bindingOf(ACCOUNT), { a: ACCOUNT, f: Date.parse("2026-11-12T09:59:00Z"), p: { [SITE]: [Date.parse("2026-11-12T09:59:00Z"), ""] } })
-    const page = await jiraEvents(read, SIGNED, { cursor }, NOW)
+    const page = await jiraEvents(read, signed, { cursor }, NOW)
     expect(page.gap).toEqual({ reason: "window-truncated", since: "2026-11-12T09:59:00.000Z" })
     expect(page).toMatchObject({ events: [], more: true })
-    const next = await jiraEvents(read, SIGNED, { cursor: page.cursor }, NOW)
+    const next = await jiraEvents(read, signed, { cursor: page.cursor }, NOW)
     expect(next.gap).toBeUndefined()
     expect(next.events.map((event) => event.title)).toEqual(["EX-9: After the burst"])
   }, 60_000)
@@ -312,36 +313,36 @@ describe("events_list", () => {
   test("a site missing from one answer keeps its position, and lists nothing again when it comes back", async () => {
     const both = [...FIXTURE.resources]
     const { read: full } = fake(FIXTURE.issues, both)
-    const first = await jiraEvents(full, SIGNED, { since: "2026-11-12T00:00:00Z" }, NOW)
+    const first = await jiraEvents(full, signed, { since: "2026-11-12T00:00:00Z" }, NOW)
     expect(first.events).toHaveLength(3)
     const { read: missing } = fake(FIXTURE.issues, [FIXTURE.resources[1]!])
-    const gone = await jiraEvents(missing, SIGNED, { cursor: first.cursor }, NOW)
+    const gone = await jiraEvents(missing, signed, { cursor: first.cursor }, NOW)
     expect(gone.events).toEqual([])
-    const back = await jiraEvents(full, SIGNED, { cursor: gone.cursor }, NOW)
+    const back = await jiraEvents(full, signed, { cursor: gone.cursor }, NOW)
     expect(back.events).toEqual([])
   })
 
   test("a work item Jira sends without an id or update time is left out, not the whole read", async () => {
     const broken = { id: "77", key: "EX-77", fields: { summary: "No update time" } }
     const { read } = fake({ [SITE]: [broken as Issue, ...FIXTURE.issues[SITE]!] })
-    const page = await jiraEvents(read, SIGNED, { since: "2026-11-12T00:00:00Z" }, NOW)
+    const page = await jiraEvents(read, signed, { since: "2026-11-12T00:00:00Z" }, NOW)
     expect(page.events.map((event) => event.title)).toEqual(["EX-1: Plan the queue migration", "EX-2: Review the release notes", "EX-10: Fix the flaky sign-in test"])
   })
 
   test("refuses a scope: the source declares none", async () => {
     const { read } = fake()
-    await expect(jiraEvents(read, SIGNED, { scope: {} }, NOW)).rejects.toThrow(/^INPUT_INVALID: /)
+    await expect(jiraEvents(read, signed, { scope: {} }, NOW)).rejects.toThrow(/^INPUT_INVALID: /)
   })
 
   test("refuses more sites than one cursor follows", async () => {
     const resources = Array.from({ length: MAX_SITES + 1 }, (_, index) => ({ cloudId: `00000000-0000-4000-8000-00000000000${index}`, products: [{ id: "jira" }] }))
     const { read } = fake({}, resources)
-    await expect(jiraEvents(read, SIGNED, {}, NOW)).rejects.toThrow(/^UNAVAILABLE: The Atlassian sign-in reaches 9 Jira sites/)
+    await expect(jiraEvents(read, signed, {}, NOW)).rejects.toThrow(/^UNAVAILABLE: The Atlassian sign-in reaches 9 Jira sites/)
   })
 
   test("a sign-in that reaches no Jira site answers an empty page", async () => {
     const { read } = fake({}, [FIXTURE.resources[1]!])
-    expect(await jiraEvents(read, SIGNED, {}, NOW)).toMatchObject({ events: [], more: false })
+    expect(await jiraEvents(read, signed, {}, NOW)).toMatchObject({ events: [], more: false })
   })
 
   test("an answer it cannot read is UNAVAILABLE, naming the tool", async () => {
@@ -349,7 +350,7 @@ describe("events_list", () => {
     for (const broken of Object.keys(shapes)) {
       const { read } = fake()
       const reading: Read = async (tool, input) => (tool === broken ? shapes[tool] : read(tool, input))
-      await expect(jiraEvents(reading, SIGNED, { since: "2026-11-12T00:00:00Z" }, NOW)).rejects.toThrow(new RegExp(`^UNAVAILABLE: Atlassian's ${broken} answered in a shape`))
+      await expect(jiraEvents(reading, signed, { since: "2026-11-12T00:00:00Z" }, NOW)).rejects.toThrow(new RegExp(`^UNAVAILABLE: Atlassian's ${broken} answered in a shape`))
     }
   })
 })
@@ -446,7 +447,8 @@ describe("reading through OpenCode's executors", () => {
     const asserted: string[] = []
     const opts = options(() => toolError("boom"), "connected", asserted)
     const unknown = await eventsMethod(opts).run({}, call()).then(() => undefined, (error: unknown) => pluginError(error))
-    expect(unknown).toMatchObject({ code: "UNAVAILABLE", next: "Call probe for the jira source, then call events_list again." })
+    // With no probe, the listing reads who is signed in first, and that read's failure is its own answer.
+    expect(unknown).toMatchObject({ code: "UNAVAILABLE", what: "Atlassian's atlassianUserInfo failed: boom" })
     const failure = await probeMethod(opts).run({}, call()).then(() => undefined, (error: unknown) => pluginError(error))
     expect(failure).toMatchObject({ code: "UNAVAILABLE", what: "Atlassian's atlassianUserInfo failed: boom" })
     expect(asserted).toEqual(["jira_events_list", "jira_probe"])
@@ -474,9 +476,112 @@ describe("reading through OpenCode's executors", () => {
     expect(page).toMatchObject({ account: ACCOUNT })
     expect(page.events).toHaveLength(3)
     expect(calls).toEqual(["atlassianUserInfo", "getAccessibleAtlassianResources", "searchJiraIssuesUsingJql"])
-    // Another sign-in has not been probed: its listing waits for a probe.
-    const other = { ...opts, signIn: async () => "cred_other" }
-    await expect(eventsMethod(other).run({}, call())).rejects.toThrow(/^UNAVAILABLE: The plugin does not know yet/)
+  })
+})
+
+/** The same host with one Atlassian tool answering as `behave` says, and the others from the fixture. */
+function replacing(opts: EventsOptions, tool: string, behave: (original: (input: Record<string, unknown>) => Promise<unknown>, input: Record<string, unknown>) => Promise<unknown>): EventsOptions {
+  return {
+    ...opts,
+    tool: {
+      list: async () =>
+        ((await opts.tool.list()) as unknown as { id: string; execute: (input: Record<string, unknown>) => Promise<unknown> }[]).map((entry) =>
+          entry.id === `jira_${tool}` ? { ...entry, execute: (input: Record<string, unknown>) => behave(entry.execute, input) } : entry,
+        ) as never,
+    },
+  }
+}
+
+describe("after a restart, with no probe yet", () => {
+  const permission = { permission: { assert: async () => {} } }
+  const listing = { since: "2026-11-12T00:00:00Z" }
+
+  test("events_list reads who is signed in itself, names the account probe names, keeps it, and lists", async () => {
+    const calls: string[] = []
+    const known = signIns()
+    const opts = sourceOptions(FIXTURE, permission, calls, known)
+    const page = (await eventsMethod(opts).run(listing, call())) as { account: string; owner: unknown; events: { title: string }[] }
+    expect(page.events.map((event) => event.title)).toEqual(["EX-1: Plan the queue migration", "EX-2: Review the release notes", "EX-10: Fix the flaky sign-in test"])
+    // The one identity read the probe makes, before the listing's own, and nothing else.
+    expect(calls).toEqual(["atlassianUserInfo", "getAccessibleAtlassianResources", "searchJiraIssuesUsingJql"])
+    expect(known.get("cred_conformance")).toEqual(SIGNED)
+    // The account and owner are those a probe names for the same sign-in.
+    const probed = (await probeMethod(sourceOptions(FIXTURE, permission)).run({}, call())) as { account: string; owner: unknown }
+    expect({ account: page.account, owner: page.owner }).toEqual({ account: probed.account, owner: probed.owner })
+    expect(page.account).toBe(ACCOUNT)
+    // Kept for the process: the next listing does not ask who is signed in again.
+    calls.length = 0
+    await eventsMethod(opts).run(listing, call())
+    expect(calls).not.toContain("atlassianUserInfo")
+  })
+
+  test("the model's tool does the same", async () => {
+    const calls: string[] = []
+    const page = (await eventsTool(sourceOptions(FIXTURE, permission, calls)).execute(listing, call() as never)).output
+    expect(page.account).toBe(ACCOUNT)
+    expect(calls[0]).toBe("atlassianUserInfo")
+  })
+
+  test("an account that is not the signed-in one is ACCOUNT_MISMATCH, before the sites or any work item is read", async () => {
+    const calls: string[] = []
+    const opts = sourceOptions(FIXTURE, permission, calls)
+    await expect(eventsMethod(opts).run({ account: "someone" }, call())).rejects.toThrow(/^ACCOUNT_MISMATCH: Jira is signed in to another Atlassian account than "someone"/)
+    expect(calls).toEqual(["atlassianUserInfo"])
+  })
+
+  test("an invalid request, or a cursor for another account, reads nothing at all", async () => {
+    const calls: string[] = []
+    const opts = sourceOptions(FIXTURE, permission, calls)
+    const cursor = encodeBoundCursor(bindingOf("someone"), { a: "someone", f: 0, p: {} })
+    await expect(eventsMethod(opts).run({ limit: 0 }, call())).rejects.toThrow(/^INPUT_INVALID: /)
+    await expect(eventsMethod(opts).run({ source: "linear" }, call())).rejects.toThrow(/^SOURCE_UNKNOWN: /)
+    await expect(eventsMethod(opts).run({ account: ACCOUNT, cursor }, call())).rejects.toThrow(/^ACCOUNT_MISMATCH: The cursor is for another Atlassian account/)
+    expect(calls).toEqual([])
+  })
+
+  test("when Atlassian cannot say who is signed in, the listing is UNAVAILABLE, keeps nothing, and works once it can", async () => {
+    const calls: string[] = []
+    let broken = true
+    const base = sourceOptions(FIXTURE, permission, calls)
+    const opts = replacing(base, "atlassianUserInfo", (original, input) => (broken ? Promise.reject(toolError("Jira is down")) : original(input)))
+    await expect(eventsMethod(opts).run(listing, call())).rejects.toThrow(/^UNAVAILABLE: Atlassian's atlassianUserInfo failed: Jira is down.* Next step: Run \/jira-status/)
+    expect(opts.signIns.size).toBe(0)
+    expect(calls).toEqual([])
+    broken = false
+    expect(((await eventsMethod(opts).run(listing, call())) as { account: string }).account).toBe(ACCOUNT)
+  })
+
+  test("an identity answer the plugin cannot read is UNAVAILABLE, and a refused permission check reaches the caller untouched", async () => {
+    const unreadable = replacing(sourceOptions(FIXTURE, permission), "atlassianUserInfo", async () => ({ content: [{ type: "text", text: JSON.stringify({ result: "Signed in as someone" }) }] }))
+    await expect(eventsMethod(unreadable).run(listing, call())).rejects.toThrow(/^UNAVAILABLE: Atlassian's atlassianUserInfo answered in a shape events_list does not read/)
+    expect(unreadable.signIns.size).toBe(0)
+    const refusal = toolError("Permission denied: jira_atlassianUserInfo", { request: { action: "jira_atlassianUserInfo" } })
+    const refused = replacing(sourceOptions(FIXTURE, permission), "atlassianUserInfo", () => Promise.reject(refusal))
+    await expect(eventsMethod(refused).run(listing, call())).rejects.toBe(refusal)
+  })
+
+  test("a new credential has its own sign-in to read, and what the plugin forgets on a credential change is read again", async () => {
+    const calls: string[] = []
+    const opts = sourceOptions(FIXTURE, permission, calls)
+    await eventsMethod(opts).run(listing, call())
+    await eventsMethod({ ...opts, signIn: async () => "cred_other" }).run(listing, call())
+    expect([...opts.signIns.keys()].sort()).toEqual(["cred_conformance", "cred_other"])
+    expect(calls.filter((tool) => tool === "atlassianUserInfo")).toHaveLength(2)
+    // What the plugin does on a credential update or switch (src/plugin.ts).
+    opts.signIns.clear()
+    calls.length = 0
+    await eventsMethod(opts).run(listing, call())
+    expect(calls.filter((tool) => tool === "atlassianUserInfo")).toHaveLength(1)
+  })
+
+  test("the assigned-issues list reads who is signed in itself too, and another account is still refused", async () => {
+    const calls: string[] = []
+    const opts = sourceOptions(FIXTURE, permission, calls)
+    const result = (await eventsMethod(opts).run({ source: "jira", list: ISSUES_LIST }, call())) as { account: string; data: { items: unknown[] } }
+    expect(result.account).toBe(ACCOUNT)
+    expect(result.data.items).toHaveLength(2)
+    expect(calls[0]).toBe("atlassianUserInfo")
+    await expect(eventsMethod(sourceOptions(FIXTURE, permission)).run({ list: ISSUES_LIST, account: "someone-else" }, call())).rejects.toThrow(/^ACCOUNT_MISMATCH: /)
   })
 })
 
@@ -624,14 +729,12 @@ describe("the assigned-issues list", () => {
     expect(new TextEncoder().encode(JSON.stringify(result)).length).toBeLessThanOrEqual(65_536)
   })
 
-  test("refuses a list it does not have, another source, another account, and a sign-in no probe has named", async () => {
+  test("refuses a list it does not have, another source, and another account", async () => {
     const opts = sourceOptions(FIXTURE, { permission: { assert: async () => {} } })
     await probeMethod(opts).run({}, call())
     expect(await code(eventsMethod(opts).run({ list: "board" }, call()))).toBe("SOURCE_UNKNOWN")
     expect(await code(eventsMethod(opts).run({ source: "github", list: ISSUES_LIST }, call()))).toBe("SOURCE_UNKNOWN")
     expect(await code(eventsMethod(opts).run({ list: ISSUES_LIST, account: "someone-else" }, call()))).toBe("ACCOUNT_MISMATCH")
-    const other = { ...opts, signIn: async () => "cred_other" }
-    expect(await code(eventsMethod(other).run({ list: ISSUES_LIST }, call()))).toBe("UNAVAILABLE")
   })
 })
 
