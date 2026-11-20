@@ -61,12 +61,18 @@ between two listings are one event, for the latest.
 
 ## The jira.issues list
 
-`events_list` with `{ "source": "jira", "list": "issues" }` answers `jira.issues`, the contract's `list` output: the
-work items assigned to the signed-in person, at most 50, newest first, read as `assignee = currentUser() ORDER BY
-updated DESC` on every site the sign-in reaches, capped at eight sites as the activity feed is. Each item is the key and
-summary as `text`, the status name as `note`, and `done` when the status category is Done; a summary that holds a
-secret is left out. It asserts `jira_events_list` and reads the same two Atlassian tools as the activity feed, and it
-needs a probe first, like a listing, to know which account is signed in.
+The tools RPC method `events_list`, called with `{ "source": "jira", "list": "issues" }`, answers `jira.issues`, the
+contract's `list` output: the work items assigned to the signed-in person, at most 50, newest first, once each, read as
+`assignee = currentUser() ORDER BY updated DESC` on every site the sign-in reaches, capped at eight sites as the activity
+feed is. Each item is the key and summary as `text`, the status name as `note`, and `done` when the status category is
+Done; its id names the site as well as the key, because two sites can both hold `EX-1`. A summary that holds a secret is
+screened whole and left out before any of it is cut. The answer stays inside the source's 64 KB; if 50 items could not
+fit, whole items would be dropped from its end and it would say `shortened: true`.
+
+**It is not a model tool.** `jira_events_list`, the tool a model sees, takes no `list` and never answers a list: the
+method declares `list` in its input and both answers in its output, and the tool declares neither. It asserts
+`jira_events_list` and reads the same two Atlassian tools as the activity feed, and it needs a probe first, like a
+listing, to know which account is signed in.
 
 ## A script runs as a session
 

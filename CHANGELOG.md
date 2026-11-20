@@ -6,12 +6,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
-- `jira.issues`, a list snapshot of the work items assigned to the signed-in person, for an app that renders a list:
-  `events_list` with `{ "source": "jira", "list": "issues" }` answers the contract's `list` output, at most 50 items
-  newest first, read as `assignee = currentUser() ORDER BY updated DESC` on every site the sign-in reaches, through the
-  same two Atlassian tools as `jira.activity` (`getAccessibleAtlassianResources`, then `searchJiraIssuesUsingJql`). An
-  item's text is its key and summary, its note the status name, and `done` marks a Done status category; a summary that
-  holds a secret is left out. `events_list`'s `source` description now says it is the source the plugin lists.
+- `jira.issues`, a list snapshot of the work items assigned to the signed-in person, for an app that renders a list and
+  not for an agent: the tools RPC method `events_list` with `{ "source": "jira", "list": "issues" }` answers the
+  contract's `list` output, at most 50 items newest first, once each, read as `assignee = currentUser() ORDER BY updated
+  DESC` on every site the sign-in reaches, through the same two Atlassian tools as `jira.activity`
+  (`getAccessibleAtlassianResources`, then `searchJiraIssuesUsingJql`). An item's text is its key and summary, its note
+  the status name, `done` marks a Done status category, and its id names the site as well as the key, since two sites can
+  both hold `EX-1`. A summary that holds a secret is screened whole and left out before any of it is cut, and the answer
+  stays inside the source's 64 KB (whole items would be dropped, marked `shortened: true`). The tools RPC method
+  declares both answers, the events page and the list, so the host accepts the list; `jira_events_list`, the model's
+  tool, keeps its events-only input and output, so no model sees `list` and nothing changes for a model from this PR.
 
 ### Changed
 

@@ -6,7 +6,12 @@ import { EVENTS_LIST, PROBE, resultProblems } from "@we-the-rebel-alliance/sourc
 import {
   accountOf,
   bindingOf,
+  EVENTS_INPUT,
+  EVENTS_METHOD_INPUT,
+  EVENTS_METHOD_OUTPUT,
+  EVENTS_OUTPUT,
   eventsMethod,
+  eventsTool,
   INVOLVES,
   ISSUES_LIST,
   jiraEvents,
@@ -448,6 +453,17 @@ describe("reading through OpenCode's executors", () => {
     expect(pluginError(new Error("plain"))).toBeUndefined()
   })
 
+  test("the model's tool has no list input and the tools RPC method does; the tool's output is the events page", async () => {
+    const opts = sourceOptions(FIXTURE, { permission: { assert: async () => {} } })
+    expect(eventsTool(opts).input).toBe(EVENTS_INPUT)
+    expect("list" in ((EVENTS_INPUT.properties ?? {}) as Record<string, unknown>)).toBe(false)
+    const method = eventsMethod(opts)
+    expect(method.input).toBe(EVENTS_METHOD_INPUT)
+    expect((EVENTS_METHOD_INPUT.properties as Record<string, unknown>)["list"]).toMatchObject({ enum: [ISSUES_LIST] })
+    expect(method.output).toBe(EVENTS_METHOD_OUTPUT)
+    expect((EVENTS_METHOD_OUTPUT.anyOf as unknown[])[0]).toBe(EVENTS_OUTPUT)
+  })
+
   test("probe records who the sign-in is, and events_list then reads the fixture through the executors for that account", async () => {
     const calls: string[] = []
     const known = signIns()
@@ -490,8 +506,8 @@ describe("the assigned-issues list", () => {
     expect(result).toMatchObject({ account: ACCOUNT, asOf: FIXTURE.now, trust: "untrusted", data: { editable: false } })
     // EX-3's summary is a password: it is left out, as the activity feed refuses it. EX-2 and EX-10 are someone else's.
     expect(result.data.items).toEqual([
-      { id: "EX-4", text: "EX-4: Write the onboarding guide", note: "To Do" },
-      { id: "EX-1", text: "EX-1: Plan the queue migration", note: "In Progress" },
+      { id: `${SITE}:EX-4`, text: "EX-4: Write the onboarding guide", note: "To Do" },
+      { id: `${SITE}:EX-1`, text: "EX-1: Plan the queue migration", note: "In Progress" },
     ])
   })
 
@@ -501,8 +517,46 @@ describe("the assigned-issues list", () => {
     await probeMethod(opts).run({}, call())
     const result = (await eventsMethod(opts).run({ list: ISSUES_LIST }, call())) as { data: { items: { id: string; done?: boolean }[] } }
     expect(result.data.items).toHaveLength(50)
-    expect(result.data.items[0]).toMatchObject({ id: "EX-200", done: true })
+    expect(result.data.items[0]).toMatchObject({ id: `${SITE}:EX-200`, done: true })
     expect(result.data.items.filter((item) => item.done === true)).toHaveLength(1)
+  })
+
+  test("screens the whole summary before it cuts, so a secret straddling the cut is still left out", async () => {
+    // 195 characters, then a secret that starts at 196: cut first, the answer would hold " password=hu".
+    const secret = { [SITE]: [{ ...issue(300, "2026-11-12T11:00:00.000+0000", "x".repeat(195) + " password=hunter2 and more") }] } as Fixture["issues"]
+    const opts = sourceOptions({ ...FIXTURE, issues: secret }, { permission: { assert: async () => {} } })
+    await probeMethod(opts).run({}, call())
+    const result = (await eventsMethod(opts).run({ list: ISSUES_LIST }, call())) as { data: { items: unknown[] } }
+    expect(result.data.items).toEqual([])
+    // The same length without a secret is cut to 200 characters.
+    const long = { [SITE]: [{ ...issue(301, "2026-11-12T11:00:00.000+0000", "y".repeat(240)) }] } as Fixture["issues"]
+    const other = sourceOptions({ ...FIXTURE, issues: long }, { permission: { assert: async () => {} } })
+    await probeMethod(other).run({}, call())
+    const cut = (await eventsMethod(other).run({ list: ISSUES_LIST }, call())) as { data: { items: { text: string }[] } }
+    expect(cut.data.items[0]!.text).toBe(`EX-301: ${"y".repeat(192)}`)
+  })
+
+  test("lists one work item once, and 50 maximal items fit inside the source's 64 KB", async () => {
+    // 50 items with a 200-character summary and a 200-character status name, each of three-byte characters: the widest
+    // answer this source can hold.
+    const huge = {
+      [SITE]: Array.from({ length: 50 }, (_, index) => {
+        const item = issue(400 + index, "2026-11-12T11:00:00.000+0000", "字".repeat(200))
+        return { ...item, fields: { ...item.fields, status: { name: "字".repeat(200), statusCategory: { name: "In Progress" } } } }
+      }),
+    } as Fixture["issues"]
+    const opts = sourceOptions({ ...FIXTURE, issues: huge }, { permission: { assert: async () => {} } })
+    await probeMethod(opts).run({}, call())
+    const result = (await eventsMethod(opts).run({ list: ISSUES_LIST }, call())) as { shortened?: boolean; data: { items: { id: string; text: string; note?: string }[] } }
+    // A key is unique only within its site: each id names its site, and none repeats.
+    expect(new Set(result.data.items.map((item) => item.id)).size).toBe(result.data.items.length)
+    expect(result.data.items).toHaveLength(50)
+    expect(result.shortened).toBeUndefined()
+    for (const item of result.data.items) {
+      expect([...item.text]).toHaveLength(200)
+      expect([...item.note!]).toHaveLength(200)
+    }
+    expect(new TextEncoder().encode(JSON.stringify(result)).length).toBeLessThanOrEqual(65_536)
   })
 
   test("refuses a list it does not have, another source, another account, and a sign-in no probe has named", async () => {
