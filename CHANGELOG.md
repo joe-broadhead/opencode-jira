@@ -2,7 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.7] - 2026-11-20
+
+### Changed
+
+- The README's calls-per-listing paragraph says `jira.activity` reads every Jira site the sign-in reaches, at most
+  eight, as the source already does and `docs/scripting.md` already says.
 
 ### Fixed
 
