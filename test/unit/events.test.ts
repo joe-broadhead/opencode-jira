@@ -8,6 +8,7 @@ import {
   bindingOf,
   eventsMethod,
   INVOLVES,
+  ISSUES_LIST,
   jiraEvents,
   jiraProbe,
   jiraTime,
@@ -460,6 +461,58 @@ describe("reading through OpenCode's executors", () => {
     // Another sign-in has not been probed: its listing waits for a probe.
     const other = { ...opts, signIn: async () => "cred_other" }
     await expect(eventsMethod(other).run({}, call())).rejects.toThrow(/^UNAVAILABLE: The plugin does not know yet/)
+  })
+})
+
+describe("the assigned-issues list", () => {
+  const code = async (promise: Promise<unknown>) => promise.then(() => undefined, (error: unknown) => pluginError(error)?.code)
+  /** A fixture of one site whose every work item is assigned to the signed-in person, newest first, `count` of them. */
+  function assigned(count: number, at = "2026-11-12T11:00:00Z") {
+    const base = Date.parse(at)
+    const issues = Array.from({ length: count }, (_, index) => {
+      const item = issue(200 + index, new Date(base - index * 60_000).toISOString(), `Work item ${index}`)
+      // The first is done, the rest still open: the list says which are done.
+      const category = index === 0 ? "Done" : "To Do"
+      return { ...item, fields: { ...item.fields, status: { name: category, statusCategory: { name: category } } } }
+    })
+    return { [SITE]: issues } as Fixture["issues"]
+  }
+
+  test("lists the work items assigned to the signed-in person, newest first, with the status as the note, and leaves out a summary holding a secret", async () => {
+    const opts = sourceOptions(FIXTURE, { permission: { assert: async () => {} } })
+    await probeMethod(opts).run({}, call())
+    const result = (await eventsMethod(opts).run({ source: "jira", list: ISSUES_LIST, account: ACCOUNT }, call())) as {
+      account: string
+      asOf: string
+      trust: string
+      data: { items: unknown[]; editable: boolean }
+    }
+    expect(result).toMatchObject({ account: ACCOUNT, asOf: FIXTURE.now, trust: "untrusted", data: { editable: false } })
+    // EX-3's summary is a password: it is left out, as the activity feed refuses it. EX-2 and EX-10 are someone else's.
+    expect(result.data.items).toEqual([
+      { id: "EX-4", text: "EX-4: Write the onboarding guide", note: "To Do" },
+      { id: "EX-1", text: "EX-1: Plan the queue migration", note: "In Progress" },
+    ])
+  })
+
+  test("caps the list at its 50 items and marks a done work item done", async () => {
+    const many = assigned(60)
+    const opts = sourceOptions({ ...FIXTURE, issues: many }, { permission: { assert: async () => {} } })
+    await probeMethod(opts).run({}, call())
+    const result = (await eventsMethod(opts).run({ list: ISSUES_LIST }, call())) as { data: { items: { id: string; done?: boolean }[] } }
+    expect(result.data.items).toHaveLength(50)
+    expect(result.data.items[0]).toMatchObject({ id: "EX-200", done: true })
+    expect(result.data.items.filter((item) => item.done === true)).toHaveLength(1)
+  })
+
+  test("refuses a list it does not have, another source, another account, and a sign-in no probe has named", async () => {
+    const opts = sourceOptions(FIXTURE, { permission: { assert: async () => {} } })
+    await probeMethod(opts).run({}, call())
+    expect(await code(eventsMethod(opts).run({ list: "board" }, call()))).toBe("SOURCE_UNKNOWN")
+    expect(await code(eventsMethod(opts).run({ source: "github", list: ISSUES_LIST }, call()))).toBe("SOURCE_UNKNOWN")
+    expect(await code(eventsMethod(opts).run({ list: ISSUES_LIST, account: "someone-else" }, call()))).toBe("ACCOUNT_MISMATCH")
+    const other = { ...opts, signIn: async () => "cred_other" }
+    expect(await code(eventsMethod(other).run({ list: ISSUES_LIST }, call()))).toBe("UNAVAILABLE")
   })
 })
 

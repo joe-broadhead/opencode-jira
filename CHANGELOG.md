@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `jira.issues`, a list snapshot of the work items assigned to the signed-in person, for an app that renders a list:
+  `events_list` with `{ "source": "jira", "list": "issues" }` answers the contract's `list` output, at most 50 items
+  newest first, read as `assignee = currentUser() ORDER BY updated DESC` on every site the sign-in reaches, through the
+  same two Atlassian tools as `jira.activity` (`getAccessibleAtlassianResources`, then `searchJiraIssuesUsingJql`). An
+  item's text is its key and summary, its note the status name, and `done` marks a Done status category; a summary that
+  holds a secret is left out. `events_list`'s `source` description now says it is the source the plugin lists.
+
+### Changed
+
+- The source contract is `@we-the-rebel-alliance/source-contract` v0.3.0, pinned as
+  `github:we-the-rebel-alliance/source-contract#v0.3.0` (commit `2fd55cd`) and bundled into `dist/index.js`, still with
+  no runtime dependency. `jira.activity` and `jira.issues` declare and send none of v0.3.0's new keys (`facts`,
+  `hints`, `routines`, actor `kind`, `sections`/`parts`), which a consumer still on v0.2.0 refuses; their declarations
+  and pages are unchanged, and a pin alone sends nothing.
+
 ## [0.0.5] - 2026-11-18
 
 ### Changed

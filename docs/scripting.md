@@ -37,15 +37,16 @@ what a script writes where those people would expect it, and only as long as you
 
 `events_list` and `probe` are the source contract's two methods, for a collector such as Memory. `probe` reads
 `atlassianUserInfo` and answers `{ source, account, owner, trust }`; it also records who this sign-in is, which every
-listing names. `events_list` takes `{ since?, cursor?, limit?, account?, source? }` and answers a page of events, oldest
-first, with a `cursor` to pass next time and `more` while there is more now. It reads `getAccessibleAtlassianResources`
+listing names. `events_list` takes `{ since?, cursor?, limit?, account?, source?, list? }` and answers a page of events, oldest
+first, with a `cursor` to pass next time and `more` while there is more now. With `list` `issues` it answers the
+`jira.issues` list snapshot instead, for an app that renders one, described below. It reads `getAccessibleAtlassianResources`
 once and searches each Jira site with `searchJiraIssuesUsingJql`, so an allow rule for those two tools is part of a
 script's grant. Its refusals use the contract's codes:
 
 | Code | When |
 | --- | --- |
 | `INPUT_INVALID` | The input has an unknown key, a bad `since`, or a `limit` outside 1 to 500. |
-| `SOURCE_UNKNOWN` | `source` is not `jira`. |
+| `SOURCE_UNKNOWN` | `source`, or a `list`, is not one this plugin has. |
 | `ACCOUNT_MISMATCH` | The `account` is not the signed-in one, or the cursor is another account's. |
 | `CURSOR_INVALID` | The cursor was not issued by this source for this account: start again with `since`. |
 | `NEEDS_SIGN_IN` | The `jira` server needs a sign-in. |
@@ -57,6 +58,15 @@ a page of up to 100 work items: more for a larger `limit` or to walk past a burs
 of minutes, and at most 100 per site. A burst larger than that is passed with `gap: { reason: "window-truncated",
 since }`, which says events from `since` may be missing; the next page carries none. Several updates to one work item
 between two listings are one event, for the latest.
+
+## The jira.issues list
+
+`events_list` with `{ "source": "jira", "list": "issues" }` answers `jira.issues`, the contract's `list` output: the
+work items assigned to the signed-in person, at most 50, newest first, read as `assignee = currentUser() ORDER BY
+updated DESC` on every site the sign-in reaches, capped at eight sites as the activity feed is. Each item is the key and
+summary as `text`, the status name as `note`, and `done` when the status category is Done; a summary that holds a
+secret is left out. It asserts `jira_events_list` and reads the same two Atlassian tools as the activity feed, and it
+needs a probe first, like a listing, to know which account is signed in.
 
 ## A script runs as a session
 
