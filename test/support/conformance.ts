@@ -32,11 +32,25 @@ export const windowMinutes = (jql: string) => Number(/updated >= "-(\d+)m"/.exec
  * (then by key number), `maxResults` at a time, with a `nextPageToken` while there are more.
  */
 export function searchAnswer(fixture: Fixture, input: Record<string, unknown>) {
+  const jql = String(input["jql"] ?? "")
   const now = Date.parse(fixture.now)
-  const from = now - windowMinutes(String(input["jql"])) * 60_000
+  const minutes = windowMinutes(jql)
+  const from = Number.isFinite(minutes) ? now - minutes * 60_000 : Number.NEGATIVE_INFINITY
+  const assigned = /^\s*assignee\s*=\s*currentUser\(\)\s+ORDER BY/i.test(jql)
+  const me = String(fixture.me["accountId"])
+  const newest = /ORDER BY updated DESC/i.test(jql)
   const all = (fixture.issues[String(input["cloudId"])] ?? [])
-    .filter((issue) => jiraTime(issue.fields["updated"])! >= from)
-    .sort((a, b) => jiraTime(a.fields["updated"])! - jiraTime(b.fields["updated"])! || Number(a.key.split("-")[1]) - Number(b.key.split("-")[1]))
+    .filter((issue) => {
+      const updated = jiraTime(issue.fields["updated"])
+      if (updated === undefined || updated < from) return false
+      if (!assigned) return true
+      const assignee = issue.fields["assignee"]
+      return typeof assignee === "object" && assignee !== null && "accountId" in assignee && assignee.accountId === me
+    })
+    .sort((a, b) => {
+      const diff = jiraTime(a.fields["updated"])! - jiraTime(b.fields["updated"])!
+      return (newest ? -diff : diff) || Number(a.key.split("-")[1]) - Number(b.key.split("-")[1])
+    })
   const offset = Number(input["nextPageToken"] ?? 0)
   const size = Number(input["maxResults"] ?? 50)
   const issues = all.slice(offset, offset + size)
@@ -117,6 +131,25 @@ export async function conformanceReports(fixture: Fixture = FIXTURE): Promise<Co
   await methods({ permission: { assert: async () => {} } }).probe.run({ source: JIRA_SOURCE }, call())
   const reports: ConformanceReport[] = []
   for (const source of sources.items) {
+    if (source.id === "jira.issues") {
+      reports.push(
+        await sourceConformance({
+          plugin: PACKAGE,
+          source,
+          tools: declaredTools(),
+          account,
+          sources: { rpc: sources.rpc, probe: sources.probe },
+          describe: { id: sources.rpc },
+          cases: [],
+          snapshotCases: [{ ...(source.input ?? {}), account }],
+          calls: {
+            snapshot: (input, session) => eventsMethod(sourceOptions(fixture, session, [], known)).run(input, call()),
+            probe: (input, session) => probeMethod(sourceOptions(fixture, session, [], known)).run(input, call()),
+          },
+        }),
+      )
+      continue
+    }
     if (source.id !== "jira.activity") throw new Error(`${source.id} is declared and the conformance run has no calls for it`)
     reports.push(
       await sourceConformance({
