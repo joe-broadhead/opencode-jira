@@ -16,6 +16,7 @@ All notable changes to this project are documented here. The format follows [Kee
   stays inside the source's 64 KB (whole items would be dropped, marked `shortened: true`). The tools RPC method
   declares both answers, the events page and the list, so the host accepts the list; `jira_events_list`, the model's
   tool, keeps its events-only input and output, so no model sees `list` and nothing changes for a model from this PR.
+- **For jelly:** `sources` gains `jira.issues`, so Jelly asks for consent again; `jira.activity` is unchanged.
 
 ### Changed
 

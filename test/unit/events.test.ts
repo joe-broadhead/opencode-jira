@@ -536,22 +536,61 @@ describe("the assigned-issues list", () => {
     expect(cut.data.items[0]!.text).toBe(`EX-301: ${"y".repeat(192)}`)
   })
 
-  test("lists one work item once, and 50 maximal items fit inside the source's 64 KB", async () => {
-    // 50 items with a 200-character summary and a 200-character status name, each of three-byte characters: the widest
-    // answer this source can hold.
+  /** Two Jira sites, so a list reads one and then the other. */
+  const TWO_SITES = [
+    { cloudId: SITE, products: [{ id: "jira" }] },
+    { cloudId: OTHER_SITE, products: [{ id: "jira" }] },
+  ]
+
+  test("sorts newest first across sites, whatever order the sites answer in", async () => {
+    // SITE is read first, and holds older work items: without the sort the answer would be Middle, Oldest, Newest.
+    const issues = {
+      [SITE]: [issue(501, "2026-11-12T09:00:00.000+0000", "Middle"), issue(502, "2026-11-12T08:00:00.000+0000", "Oldest")],
+      [OTHER_SITE]: [issue(503, "2026-11-12T11:00:00.000+0000", "Newest")],
+    } as Fixture["issues"]
+    const opts = sourceOptions({ ...FIXTURE, issues, resources: TWO_SITES }, { permission: { assert: async () => {} } })
+    await probeMethod(opts).run({}, call())
+    const result = (await eventsMethod(opts).run({ list: ISSUES_LIST }, call())) as { data: { items: { text: string }[] } }
+    expect(result.data.items.map((item) => item.text)).toEqual(["EX-503: Newest", "EX-501: Middle", "EX-502: Oldest"])
+  })
+
+  test("lists one work item once per site, and the same key on two sites as two items", async () => {
+    const once = issue(600, "2026-11-12T10:00:00.000+0000", "One work item")
+    const issues = {
+      [SITE]: [
+        // The same key twice on one site is one work item, at its latest update.
+        { ...once },
+        { ...once, fields: { ...once.fields, summary: "One work item, again", updated: "2026-11-12T10:30:00.000+0000" } },
+        issue(601, "2026-11-12T11:00:00.000+0000", "Another work item"),
+      ],
+      // The same key on another site is another work item: both are listed, each id naming its site.
+      [OTHER_SITE]: [{ ...issue(600, "2026-11-12T10:00:00.000+0000", "One work item") }],
+    } as Fixture["issues"]
+    const opts = sourceOptions({ ...FIXTURE, issues, resources: TWO_SITES }, { permission: { assert: async () => {} } })
+    await probeMethod(opts).run({}, call())
+    const result = (await eventsMethod(opts).run({ list: ISSUES_LIST }, call())) as { data: { items: { id: string }[] } }
+    const ids = result.data.items.map((item) => item.id)
+    expect(ids.filter((id) => id === `${SITE}:EX-600`)).toHaveLength(1)
+    expect(ids.filter((id) => id === `${OTHER_SITE}:EX-600`)).toHaveLength(1)
+    expect(ids).toHaveLength(3)
+  })
+
+  test("bounds the answer with multi-byte items: 50 maximal ones exceed 64 KB, so it drops whole items and says so", async () => {
+    // 50 items whose id, text and note are three-byte characters: the id is 128 characters at most, the key alone 120,
+    // the summary 200 and the status name 200, so the answer is about 80 KB before the bound.
     const huge = {
       [SITE]: Array.from({ length: 50 }, (_, index) => {
         const item = issue(400 + index, "2026-11-12T11:00:00.000+0000", "字".repeat(200))
-        return { ...item, fields: { ...item.fields, status: { name: "字".repeat(200), statusCategory: { name: "In Progress" } } } }
+        return { ...item, key: `${"字".repeat(118)}-${index}`, fields: { ...item.fields, status: { name: "字".repeat(200), statusCategory: { name: "In Progress" } } } }
       }),
     } as Fixture["issues"]
     const opts = sourceOptions({ ...FIXTURE, issues: huge }, { permission: { assert: async () => {} } })
     await probeMethod(opts).run({}, call())
     const result = (await eventsMethod(opts).run({ list: ISSUES_LIST }, call())) as { shortened?: boolean; data: { items: { id: string; text: string; note?: string }[] } }
-    // A key is unique only within its site: each id names its site, and none repeats.
-    expect(new Set(result.data.items.map((item) => item.id)).size).toBe(result.data.items.length)
-    expect(result.data.items).toHaveLength(50)
-    expect(result.shortened).toBeUndefined()
+    expect(result.shortened).toBe(true)
+    expect(result.data.items.length).toBeGreaterThan(0)
+    expect(result.data.items.length).toBeLessThan(50)
+    // Whole items, never cut bytes: each kept item still carries its 200-character text and note.
     for (const item of result.data.items) {
       expect([...item.text]).toHaveLength(200)
       expect([...item.note!]).toHaveLength(200)
