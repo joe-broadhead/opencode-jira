@@ -554,11 +554,35 @@ describe("the assigned-issues list", () => {
     expect(result.data.items.map((item) => item.text)).toEqual(["EX-503: Newest", "EX-501: Middle", "EX-502: Oldest"])
   })
 
+  test("sorts before the 50 cap across sites: the newest 50 are kept, not the first site's page", async () => {
+    // SITE is read first and answers 55 work items, so its page is its newest 50 (EX-705..EX-754); OTHER_SITE answers 10
+    // newer ones. Sorted first and then capped, the newest 50 are those 10 and the newest 40 of SITE's page; capping
+    // first would keep SITE's 50 and drop all 10.
+    const base = Date.parse("2026-11-12T08:00:00Z")
+    const site = Array.from({ length: 55 }, (_, index) => issue(700 + index, new Date(base + index * 60_000).toISOString().replace(".000Z", ".000+0000"), `Work item ${700 + index}`))
+    const other = Array.from({ length: 10 }, (_, index) => issue(800 + index, new Date(base + (60 + index) * 60_000).toISOString().replace(".000Z", ".000+0000"), `Newer ${800 + index}`))
+    const issues = { [SITE]: site, [OTHER_SITE]: other } as Fixture["issues"]
+    const opts = sourceOptions({ ...FIXTURE, issues, resources: TWO_SITES }, { permission: { assert: async () => {} } })
+    await probeMethod(opts).run({}, call())
+    const result = (await eventsMethod(opts).run({ list: ISSUES_LIST }, call())) as { data: { items: { text: string }[] } }
+    const texts = result.data.items.map((item) => item.text)
+    expect(texts).toHaveLength(50)
+    expect(texts[0]).toBe("EX-809: Newer 809")
+    // The kept 40 of SITE's page are its newest; the oldest of that page are left out.
+    expect(texts).toContain("EX-754: Work item 754")
+    expect(texts).toContain("EX-715: Work item 715")
+    expect(texts).not.toContain("EX-714: Work item 714")
+    expect(texts.at(-1)).toBe("EX-715: Work item 715")
+    // Every one of OTHER_SITE's 10 is in, not dropped with the page.
+    for (const index of Array.from({ length: 10 }, (_, offset) => 800 + offset)) expect(texts).toContain(`EX-${index}: Newer ${index}`)
+  })
+
   test("lists one work item once per site, and the same key on two sites as two items", async () => {
     const once = issue(600, "2026-11-12T10:00:00.000+0000", "One work item")
     const issues = {
       [SITE]: [
-        // The same key twice on one site is one work item, at its latest update.
+        // The same key twice on one site is one work item: the first copy in the site's answer wins, and that answer
+        // is ordered by update, newest first, so the latest update is the copy kept.
         { ...once },
         { ...once, fields: { ...once.fields, summary: "One work item, again", updated: "2026-11-12T10:30:00.000+0000" } },
         issue(601, "2026-11-12T11:00:00.000+0000", "Another work item"),
@@ -568,11 +592,13 @@ describe("the assigned-issues list", () => {
     } as Fixture["issues"]
     const opts = sourceOptions({ ...FIXTURE, issues, resources: TWO_SITES }, { permission: { assert: async () => {} } })
     await probeMethod(opts).run({}, call())
-    const result = (await eventsMethod(opts).run({ list: ISSUES_LIST }, call())) as { data: { items: { id: string }[] } }
+    const result = (await eventsMethod(opts).run({ list: ISSUES_LIST }, call())) as { data: { items: { id: string; text: string }[] } }
     const ids = result.data.items.map((item) => item.id)
     expect(ids.filter((id) => id === `${SITE}:EX-600`)).toHaveLength(1)
     expect(ids.filter((id) => id === `${OTHER_SITE}:EX-600`)).toHaveLength(1)
     expect(ids).toHaveLength(3)
+    // The copy kept is the one the site's newest-first answer lists first: the later update, not the stale duplicate.
+    expect(result.data.items.find((item) => item.id === `${SITE}:EX-600`)).toMatchObject({ text: "EX-600: One work item, again" })
   })
 
   test("bounds the answer with multi-byte items: 50 maximal ones exceed 64 KB, so it drops whole items and says so", async () => {
