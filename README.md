@@ -27,7 +27,7 @@ Jira is a trademark of Atlassian Pty Ltd; this unofficial plugin is not endorsed
 ## Install
 
 ```sh
-opencode plugin add github:joe-broadhead/opencode-jira#v0.0.6
+opencode plugin add github:joe-broadhead/opencode-jira#v0.0.7
 ```
 
 Run `opencode reload`, or restart OpenCode. Then run `/jira-status`: it shows `sign-in required` until you sign in
@@ -38,7 +38,7 @@ Each release has its own tag, and a Git install does not update by itself. To mo
 Or add the plugin to `opencode.json` instead, with the same spec:
 
 ```json
-{ "plugins": [{ "package": "github:joe-broadhead/opencode-jira#v0.0.6" }] }
+{ "plugins": [{ "package": "github:joe-broadhead/opencode-jira#v0.0.7" }] }
 ```
 
 The plugin registers Atlassian's MCP server under the name `jira`, adds default permission rules, the `/jira-status`
@@ -161,7 +161,8 @@ burst larger than that is passed with a `gap` (`window-truncated`) that names wh
 failing every call.
 
 **Calls per listing:** the first listing after a start of OpenCode or a new sign-in also makes one `atlassianUserInfo`
-read. Every listing makes one `getAccessibleAtlassianResources`, then one `searchJiraIssuesUsingJql` per Jira site for a
+read. Every listing reads every Jira site your sign-in reaches, at most eight (a sign-in that reaches more is refused,
+not read in part). It makes one `getAccessibleAtlassianResources`, then one `searchJiraIssuesUsingJql` per Jira site for a
 page of up to 100 work items, more for a larger `limit` or a burst, and at most 100 per site. They share your sign-in's
 Atlassian rate limit with the model's own calls; nothing is billed. Both tools run through OpenCode's executors, under
 the same rules as any call, and every `access` value allows `events_list` and `probe`.
@@ -180,7 +181,7 @@ There are three ways to restrict it.
 ```json
 {
   "plugins": [
-    { "package": "github:joe-broadhead/opencode-jira#v0.0.6", "options": { "access": "ask-changes" } }
+    { "package": "github:joe-broadhead/opencode-jira#v0.0.7", "options": { "access": "ask-changes" } }
   ]
 }
 ```
@@ -481,7 +482,7 @@ Set options with the object form of the plugin entry:
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-jira#v0.0.6", "options": { "allowUntestedHost": true } }]
+  "plugins": [{ "package": "github:joe-broadhead/opencode-jira#v0.0.7", "options": { "allowUntestedHost": true } }]
 }
 ```
 
@@ -502,7 +503,7 @@ plugin entry in the system config: `/Library/Application Support/opencode/openco
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-jira#v0.0.6" }],
+  "plugins": [{ "package": "github:joe-broadhead/opencode-jira#v0.0.7" }],
   "permissions": [{ "action": "jira_createJiraIssue", "resource": "*", "effect": "deny" }]
 }
 ```
@@ -608,7 +609,7 @@ sign-in stays in OpenCode's credential store.
    where the plugin is installed. If it answers `MCP server not found: jira`, OpenCode is still opening that folder:
    wait a few seconds and run it again.
 2. Check: `opencode auth list` no longer lists **Jira**.
-3. Remove the plugin: `opencode plugin remove github:joe-broadhead/opencode-jira#v0.0.6`, then `opencode reload`.
+3. Remove the plugin: `opencode plugin remove github:joe-broadhead/opencode-jira#v0.0.7`, then `opencode reload`.
    `opencode mcp list` no longer lists `jira`.
 4. Remove any Jira rules you copied into your agents' own `permissions`.
 
