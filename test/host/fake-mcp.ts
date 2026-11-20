@@ -117,7 +117,7 @@ export interface FakeMcp {
   close(): Promise<void>
 }
 
-type Message = { jsonrpc: "2.0"; id?: number | string; method: string; params?: { protocolVersion?: string; name?: string; arguments?: { query?: unknown } } }
+type Message = { jsonrpc: "2.0"; id?: number | string; method: string; params?: { protocolVersion?: string; name?: string; arguments?: { query?: unknown; jql?: unknown; cloudId?: unknown } } }
 
 export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMcp> {
   const calls: string[] = []
@@ -139,6 +139,12 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
         calls.push(name)
         called.push({ tool: name, path })
         const args = message.params?.arguments ?? {}
+        // The list snapshot's one query: work items assigned to the signed-in person, newest first.
+        if (String(args.jql ?? "").startsWith("assignee = currentUser()")) {
+          // One work item on the first site, none on the second: both answer an issues list, as Atlassian does.
+          const issues = args.cloudId === "cloud-acme" ? [{ id: "10001", key: "EX-1", fields: { summary: "A work item", updated: "2026-11-12T09:00:00.000+0000", status: { name: "In Progress", statusCategory: { name: "In Progress" } } } }] : []
+          return reply({ content: [{ type: "text", text: "issues" }], structuredContent: { issues, isLast: true } })
+        }
         if (String(args.query ?? "").startsWith("fail")) return reply({ content: [{ type: "text", text: UPSTREAM_FAILURE }], isError: true })
         if (String(args.query ?? "").startsWith("text")) return reply({ content: [{ type: "text", text: `text from ${name}` }] })
         // The two account reads: a display name with an email beside it, and two sites with cloud ids and URLs, so a test

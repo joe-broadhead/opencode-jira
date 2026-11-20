@@ -14,6 +14,7 @@ import {
   parseProbeInput,
   probeResult,
   screenEvents,
+  secretKinds,
   startTime,
   type EventsListRequest,
   type EventsListResult,
@@ -138,20 +139,34 @@ const START_AGAIN = "Call events_list without a cursor, with since, to start aga
 
 const STRING = { type: "string" } as const
 
-export const EVENTS_INPUT: JsonSchema = {
+/** The list snapshot `jira.issues`: work items assigned to the signed-in person. */
+export const ISSUES_LIST = "issues"
+
+const EVENTS_PROPERTIES = {
+  since: { type: "string", maxLength: 40, description: "Where to start without a cursor: an ISO date (a UTC day) or an ISO date-time with Z or an offset. Default: 24 hours ago" },
+  cursor: { type: "string", minLength: 1, maxLength: EVENT_LIMITS.cursor, description: "The previous result's cursor, to list what changed after it. It wins over since" },
+  limit: { type: "integer", minimum: PAGE.min, maximum: PAGE.max, description: `Most events to return, ${PAGE.min} to ${PAGE.max}; ${PAGE.default} by default` },
+  account: {
+    type: "string",
+    minLength: 1,
+    maxLength: EVENT_LIMITS.account,
+    description: "Optional: the signed-in Atlassian account, as probe and every result name it. Another account is refused",
+  },
+  source: { type: "string", enum: [JIRA_SOURCE], description: `"${JIRA_SOURCE}", the only source this plugin has` },
+} as const
+
+export const EVENTS_INPUT: JsonSchema = { type: "object", additionalProperties: false, properties: EVENTS_PROPERTIES }
+
+/**
+ * The tools RPC method's input: the model tool's, plus the list snapshot's name. No model sees `list`: the tool's schema
+ * is EVENTS_INPUT, and a list answer is not an events page, so only a consumer that binds the snapshot asks for it.
+ */
+export const EVENTS_METHOD_INPUT: JsonSchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    since: { type: "string", maxLength: 40, description: "Where to start without a cursor: an ISO date (a UTC day) or an ISO date-time with Z or an offset. Default: 24 hours ago" },
-    cursor: { type: "string", minLength: 1, maxLength: EVENT_LIMITS.cursor, description: "The previous result's cursor, to list what changed after it. It wins over since" },
-    limit: { type: "integer", minimum: PAGE.min, maximum: PAGE.max, description: `Most events to return, ${PAGE.min} to ${PAGE.max}; ${PAGE.default} by default` },
-    account: {
-      type: "string",
-      minLength: 1,
-      maxLength: EVENT_LIMITS.account,
-      description: "Optional: the signed-in Atlassian account, as probe and every result name it. Another account is refused",
-    },
-    source: { type: "string", enum: [JIRA_SOURCE], description: `"${JIRA_SOURCE}", the only source this plugin has` },
+    ...EVENTS_PROPERTIES,
+    list: { type: "string", enum: [ISSUES_LIST], description: 'A list snapshot instead of events: issues assigned to the signed-in person. Pass source "jira".' },
   },
 }
 
@@ -216,6 +231,50 @@ export const EVENTS_OUTPUT: JsonSchema = {
     asOf: { type: "string", description: "When the page was read, UTC ISO" },
   },
 }
+
+/**
+ * The list snapshot's answer, as the contract's snapshot envelope and its registry's `list` output. It is the tools RPC
+ * method's second output: the host validates every method answer against the method's declared output, so an events-only
+ * schema would refuse it `rpc.invalid_output`. `shortened` says whole items were dropped to stay in `maxBytes`.
+ */
+export const LIST_ANSWER: JsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["source", "account", "data", "asOf", "trust"],
+  properties: {
+    source: { type: "string", const: JIRA_SOURCE },
+    account: { type: "string", description: "The signed-in Atlassian account id." },
+    data: {
+      type: "object",
+      additionalProperties: false,
+      required: ["items", "editable"],
+      properties: {
+        items: {
+          type: "array",
+          maxItems: 50,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["id", "text"],
+            properties: {
+              id: { type: "string", minLength: 1, maxLength: 128 },
+              text: { type: "string", maxLength: 200 },
+              done: { type: "boolean" },
+              note: { type: "string", maxLength: 200 },
+            },
+          },
+        },
+        editable: { type: "boolean", const: false },
+      },
+    },
+    asOf: { type: "string", description: "When the list was read, UTC ISO." },
+    trust: { type: "string", const: "untrusted" },
+    shortened: { type: "boolean", description: "True when whole items were dropped from the end to stay within maxBytes." },
+  },
+}
+
+/** The tools RPC method's output: an events page, or the list snapshot's answer, whichever the input asked for. */
+export const EVENTS_METHOD_OUTPUT: JsonSchema = { anyOf: [EVENTS_OUTPUT, LIST_ANSWER] }
 
 const PROBE_INPUT: JsonSchema = {
   type: "object",
@@ -730,6 +789,79 @@ const assertAction = (options: EventsOptions, action: string, context: Context) 
     source: { type: "tool", messageID: context.messageID, id: context.id },
   })
 
+const LIST_CAP = 50
+/** The most bytes the list answer may hold: the source's declared `maxBytes`. */
+const LIST_MAX_BYTES = 65_536
+const ASSIGNED = "assignee = currentUser() ORDER BY updated DESC"
+
+/** A string's UTF-8 bytes, as JSON carries it. */
+const jsonBytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).length
+/** A title or note as JSON may carry it: whitespace collapsed, control characters dropped. */
+const clean = (value: string) => value.replace(/\s+/g, " ").replace(/[\u0000-\u001f\u007f-\u009f]/g, "")
+
+/** True when the call asks for the assigned-issues list, including a list value this plugin does not have. */
+export const isIssuesList = (input: unknown): boolean => isRecord(input) && "list" in input
+
+/**
+ * Assigned work items as the contract's `list` output. The same host executors as `events_list`
+ * (`getAccessibleAtlassianResources`, then `searchJiraIssuesUsingJql`), not a second client. Work items are listed
+ * newest first, once each, and a summary that holds a secret is left out: it is screened whole, before any of it is
+ * cut. The answer stays inside LIST_MAX_BYTES by dropping whole items from its end, which it says with
+ * `shortened: true`; it never cuts an item's bytes.
+ */
+export async function jiraIssueList(read: Read, signedIn: SignedIn | undefined, input: unknown, now: number) {
+  const data = isRecord(input) ? input : {}
+  if (data["list"] !== ISSUES_LIST) {
+    throw fail("SOURCE_UNKNOWN", `A list read names "${ISSUES_LIST}", not "${text(data["list"]) ?? ""}".`, `Pass "list" as "${ISSUES_LIST}".`)
+  }
+  if (data["source"] !== undefined && data["source"] !== JIRA_SOURCE) {
+    throw fail("SOURCE_UNKNOWN", `This plugin has no list for "${text(data["source"]) ?? ""}".`, `Pass source "${JIRA_SOURCE}" with list "${ISSUES_LIST}".`)
+  }
+  if (signedIn === undefined) {
+    throw fail("UNAVAILABLE", "The plugin does not know yet who is signed in to Jira: no probe has named this sign-in's account since it was made or OpenCode started", "Call probe for the jira source, then call events_list again.")
+  }
+  const asked = text(data["account"])
+  if (asked !== undefined && asked !== signedIn.account) throw mismatch(asked, "signed-in")
+  const sites = sitesOf(await read(SITES_TOOL, {}))
+  if (sites.length > MAX_SITES) {
+    throw fail("UNAVAILABLE", `The Atlassian sign-in reaches ${sites.length} Jira sites, more than the ${MAX_SITES} a list reads`, "Sign in to Jira with an account that reaches fewer sites, or read the sites you need with searchJiraIssuesUsingJql.")
+  }
+  const seen = new Set<string>()
+  const rows: { at: number; item: { id: string; text: string; note?: string; done?: true } }[] = []
+  for (const site of sites) {
+    const { issues } = searchPage(await read(SEARCH_TOOL, { cloudId: site.cloudId, jql: ASSIGNED, maxResults: LIST_CAP, fields: ["summary", "status", "updated"], view: "evidence" }))
+    for (const issue of issues) {
+      const data = record(issue)
+      const fields = record(data["fields"])
+      const key = text(data["key"])
+      if (key === undefined) continue
+      // One work item is one key per site: the same key on two sites is two different work items.
+      const identity = `${site.cloudId}:${key}`
+      if (seen.has(identity)) continue
+      const summary = clean(text(fields["summary"]) ?? "")
+      // The whole summary, and the key with it, is screened before any of it is cut.
+      if (secretKinds(`${key} ${summary}`).length > 0) continue
+      seen.add(identity)
+      const status = named(fields["status"])
+      const category = named(record(fields["status"])["statusCategory"])
+      const body = (summary === "" ? key : `${key}: ${summary}`).slice(0, 200)
+      const note = status === undefined ? undefined : clean(status).slice(0, 200)
+      const at = jiraTime(fields["updated"]) ?? 0
+      const done = category !== undefined && /^done$/i.test(category)
+      // A key is unique only within its site: two sites can both hold EX-1, so the id names the site too.
+      rows.push({ at, item: { id: `${site.cloudId}:${key}`.slice(0, 128), text: body, ...(note === undefined || note === "" ? {} : { note }), ...(done ? { done: true } : {}) } })
+    }
+  }
+  const items = rows.sort((a, b) => b.at - a.at).slice(0, LIST_CAP).map((row) => row.item)
+  const answer = { source: JIRA_SOURCE, account: signedIn.account, data: { items, editable: false as const }, asOf: new Date(now).toISOString(), trust: "untrusted" as const }
+  let shortened = false
+  while (items.length > 0 && jsonBytes({ ...answer, shortened }) > LIST_MAX_BYTES) {
+    items.pop()
+    shortened = true
+  }
+  return shortened ? { ...answer, shortened } : answer
+}
+
 /** `jira_events_list`, a Code Mode tool in the `jira` namespace. It asserts its own action, then reads. */
 export function eventsTool(options: EventsOptions) {
   return {
@@ -742,6 +874,7 @@ export function eventsTool(options: EventsOptions) {
       // Rethrown untouched: the host turns a refusal into the end of the step, and the tools RPC into PERMISSION_DENIED.
       await assertAction(options, EVENTS_ACTION, context)
       const signedIn = options.signIns.get((await options.signIn().catch(() => undefined)) ?? "")
+      // The tool's schema has no `list`: a model's read is the events feed. The list is the tools RPC method's.
       const output = await jiraEvents(reader(options, context), signedIn, input, options.now?.() ?? Date.now())
       return { output, content: summary(output) }
     },
@@ -756,18 +889,27 @@ const availability = (options: EventsOptions) => async () => {
   return state === "connected" ? undefined : ({ needs_auth: "AUTH_REQUIRED", pending: "CONNECTING", failed: "CONNECTION_FAILED", disabled: "DISABLED" } as Record<string, string>)[state]
 }
 
-/** `events_list` as a tools RPC method: it runs the tool's own spec as the envelope's session and agent. */
+/**
+ * `events_list` as a tools RPC method: the tool's own run as the envelope's session and agent, or the list snapshot when
+ * the input names one. Its input carries `list` and its output both answers; the model's tool carries neither.
+ */
 export function eventsMethod(options: EventsOptions): OwnedMethod {
-  const tool = eventsTool(options)
   return {
     kind: "plugin",
     class: "read",
     name: EVENTS_LIST,
     action: EVENTS_ACTION,
     description: DESCRIPTION,
-    input: EVENTS_INPUT,
-    output: EVENTS_OUTPUT,
-    run: async (input: unknown, call: ToolCall) => (await tool.execute(input, call as unknown as Context)).output,
+    input: EVENTS_METHOD_INPUT,
+    output: EVENTS_METHOD_OUTPUT,
+    run: async (input: unknown, call: ToolCall) => {
+      // Rethrown untouched: the host turns a refusal into the end of the step, and the tools RPC into PERMISSION_DENIED.
+      await assertAction(options, EVENTS_ACTION, call as unknown as Context)
+      const signedIn = options.signIns.get((await options.signIn().catch(() => undefined)) ?? "")
+      const now = options.now?.() ?? Date.now()
+      if (isIssuesList(input)) return jiraIssueList(reader(options, call as unknown as Context), signedIn, input, now)
+      return jiraEvents(reader(options, call as unknown as Context), signedIn, input, now)
+    },
     available: availability(options),
   }
 }

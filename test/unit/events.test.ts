@@ -6,8 +6,14 @@ import { EVENTS_LIST, PROBE, resultProblems } from "@we-the-rebel-alliance/sourc
 import {
   accountOf,
   bindingOf,
+  EVENTS_INPUT,
+  EVENTS_METHOD_INPUT,
+  EVENTS_METHOD_OUTPUT,
+  EVENTS_OUTPUT,
   eventsMethod,
+  eventsTool,
   INVOLVES,
+  ISSUES_LIST,
   jiraEvents,
   jiraProbe,
   jiraTime,
@@ -447,6 +453,17 @@ describe("reading through OpenCode's executors", () => {
     expect(pluginError(new Error("plain"))).toBeUndefined()
   })
 
+  test("the model's tool has no list input and the tools RPC method does; the tool's output is the events page", async () => {
+    const opts = sourceOptions(FIXTURE, { permission: { assert: async () => {} } })
+    expect(eventsTool(opts).input).toBe(EVENTS_INPUT)
+    expect("list" in ((EVENTS_INPUT.properties ?? {}) as Record<string, unknown>)).toBe(false)
+    const method = eventsMethod(opts)
+    expect(method.input).toBe(EVENTS_METHOD_INPUT)
+    expect((EVENTS_METHOD_INPUT.properties as Record<string, unknown>)["list"]).toMatchObject({ enum: [ISSUES_LIST] })
+    expect(method.output).toBe(EVENTS_METHOD_OUTPUT)
+    expect((EVENTS_METHOD_OUTPUT.anyOf as unknown[])[0]).toBe(EVENTS_OUTPUT)
+  })
+
   test("probe records who the sign-in is, and events_list then reads the fixture through the executors for that account", async () => {
     const calls: string[] = []
     const known = signIns()
@@ -463,10 +480,168 @@ describe("reading through OpenCode's executors", () => {
   })
 })
 
+describe("the assigned-issues list", () => {
+  const code = async (promise: Promise<unknown>) => promise.then(() => undefined, (error: unknown) => pluginError(error)?.code)
+  /** A fixture of one site whose every work item is assigned to the signed-in person, newest first, `count` of them. */
+  function assigned(count: number, at = "2026-11-12T11:00:00Z") {
+    const base = Date.parse(at)
+    const issues = Array.from({ length: count }, (_, index) => {
+      const item = issue(200 + index, new Date(base - index * 60_000).toISOString(), `Work item ${index}`)
+      // The first is done, the rest still open: the list says which are done.
+      const category = index === 0 ? "Done" : "To Do"
+      return { ...item, fields: { ...item.fields, status: { name: category, statusCategory: { name: category } } } }
+    })
+    return { [SITE]: issues } as Fixture["issues"]
+  }
+
+  test("lists the work items assigned to the signed-in person, newest first, with the status as the note, and leaves out a summary holding a secret", async () => {
+    const opts = sourceOptions(FIXTURE, { permission: { assert: async () => {} } })
+    await probeMethod(opts).run({}, call())
+    const result = (await eventsMethod(opts).run({ source: "jira", list: ISSUES_LIST, account: ACCOUNT }, call())) as {
+      account: string
+      asOf: string
+      trust: string
+      data: { items: unknown[]; editable: boolean }
+    }
+    expect(result).toMatchObject({ account: ACCOUNT, asOf: FIXTURE.now, trust: "untrusted", data: { editable: false } })
+    // EX-3's summary is a password: it is left out, as the activity feed refuses it. EX-2 and EX-10 are someone else's.
+    expect(result.data.items).toEqual([
+      { id: `${SITE}:EX-4`, text: "EX-4: Write the onboarding guide", note: "To Do" },
+      { id: `${SITE}:EX-1`, text: "EX-1: Plan the queue migration", note: "In Progress" },
+    ])
+  })
+
+  test("caps the list at its 50 items and marks a done work item done", async () => {
+    const many = assigned(60)
+    const opts = sourceOptions({ ...FIXTURE, issues: many }, { permission: { assert: async () => {} } })
+    await probeMethod(opts).run({}, call())
+    const result = (await eventsMethod(opts).run({ list: ISSUES_LIST }, call())) as { data: { items: { id: string; done?: boolean }[] } }
+    expect(result.data.items).toHaveLength(50)
+    expect(result.data.items[0]).toMatchObject({ id: `${SITE}:EX-200`, done: true })
+    expect(result.data.items.filter((item) => item.done === true)).toHaveLength(1)
+  })
+
+  test("screens the whole summary before it cuts, so a secret straddling the cut is still left out", async () => {
+    // 195 characters, then a secret that starts at 196: cut first, the answer would hold " password=hu".
+    const secret = { [SITE]: [{ ...issue(300, "2026-11-12T11:00:00.000+0000", "x".repeat(195) + " password=hunter2 and more") }] } as Fixture["issues"]
+    const opts = sourceOptions({ ...FIXTURE, issues: secret }, { permission: { assert: async () => {} } })
+    await probeMethod(opts).run({}, call())
+    const result = (await eventsMethod(opts).run({ list: ISSUES_LIST }, call())) as { data: { items: unknown[] } }
+    expect(result.data.items).toEqual([])
+    // The same length without a secret is cut to 200 characters.
+    const long = { [SITE]: [{ ...issue(301, "2026-11-12T11:00:00.000+0000", "y".repeat(240)) }] } as Fixture["issues"]
+    const other = sourceOptions({ ...FIXTURE, issues: long }, { permission: { assert: async () => {} } })
+    await probeMethod(other).run({}, call())
+    const cut = (await eventsMethod(other).run({ list: ISSUES_LIST }, call())) as { data: { items: { text: string }[] } }
+    expect(cut.data.items[0]!.text).toBe(`EX-301: ${"y".repeat(192)}`)
+  })
+
+  /** Two Jira sites, so a list reads one and then the other. */
+  const TWO_SITES = [
+    { cloudId: SITE, products: [{ id: "jira" }] },
+    { cloudId: OTHER_SITE, products: [{ id: "jira" }] },
+  ]
+
+  test("sorts newest first across sites, whatever order the sites answer in", async () => {
+    // SITE is read first, and holds older work items: without the sort the answer would be Middle, Oldest, Newest.
+    const issues = {
+      [SITE]: [issue(501, "2026-11-12T09:00:00.000+0000", "Middle"), issue(502, "2026-11-12T08:00:00.000+0000", "Oldest")],
+      [OTHER_SITE]: [issue(503, "2026-11-12T11:00:00.000+0000", "Newest")],
+    } as Fixture["issues"]
+    const opts = sourceOptions({ ...FIXTURE, issues, resources: TWO_SITES }, { permission: { assert: async () => {} } })
+    await probeMethod(opts).run({}, call())
+    const result = (await eventsMethod(opts).run({ list: ISSUES_LIST }, call())) as { data: { items: { text: string }[] } }
+    expect(result.data.items.map((item) => item.text)).toEqual(["EX-503: Newest", "EX-501: Middle", "EX-502: Oldest"])
+  })
+
+  test("sorts before the 50 cap across sites: the newest 50 are kept, not the first site's page", async () => {
+    // SITE is read first and answers 55 work items, so its page is its newest 50 (EX-705..EX-754); OTHER_SITE answers 10
+    // newer ones. Sorted first and then capped, the newest 50 are those 10 and the newest 40 of SITE's page; capping
+    // first would keep SITE's 50 and drop all 10.
+    const base = Date.parse("2026-11-12T08:00:00Z")
+    const site = Array.from({ length: 55 }, (_, index) => issue(700 + index, new Date(base + index * 60_000).toISOString().replace(".000Z", ".000+0000"), `Work item ${700 + index}`))
+    const other = Array.from({ length: 10 }, (_, index) => issue(800 + index, new Date(base + (60 + index) * 60_000).toISOString().replace(".000Z", ".000+0000"), `Newer ${800 + index}`))
+    const issues = { [SITE]: site, [OTHER_SITE]: other } as Fixture["issues"]
+    const opts = sourceOptions({ ...FIXTURE, issues, resources: TWO_SITES }, { permission: { assert: async () => {} } })
+    await probeMethod(opts).run({}, call())
+    const result = (await eventsMethod(opts).run({ list: ISSUES_LIST }, call())) as { data: { items: { text: string }[] } }
+    const texts = result.data.items.map((item) => item.text)
+    expect(texts).toHaveLength(50)
+    expect(texts[0]).toBe("EX-809: Newer 809")
+    // The kept 40 of SITE's page are its newest; the oldest of that page are left out.
+    expect(texts).toContain("EX-754: Work item 754")
+    expect(texts).toContain("EX-715: Work item 715")
+    expect(texts).not.toContain("EX-714: Work item 714")
+    expect(texts.at(-1)).toBe("EX-715: Work item 715")
+    // Every one of OTHER_SITE's 10 is in, not dropped with the page.
+    for (const index of Array.from({ length: 10 }, (_, offset) => 800 + offset)) expect(texts).toContain(`EX-${index}: Newer ${index}`)
+  })
+
+  test("lists one work item once per site, and the same key on two sites as two items", async () => {
+    const once = issue(600, "2026-11-12T10:00:00.000+0000", "One work item")
+    const issues = {
+      [SITE]: [
+        // The same key twice on one site is one work item: the first copy in the site's answer wins, and that answer
+        // is ordered by update, newest first, so the latest update is the copy kept.
+        { ...once },
+        { ...once, fields: { ...once.fields, summary: "One work item, again", updated: "2026-11-12T10:30:00.000+0000" } },
+        issue(601, "2026-11-12T11:00:00.000+0000", "Another work item"),
+      ],
+      // The same key on another site is another work item: both are listed, each id naming its site.
+      [OTHER_SITE]: [{ ...issue(600, "2026-11-12T10:00:00.000+0000", "One work item") }],
+    } as Fixture["issues"]
+    const opts = sourceOptions({ ...FIXTURE, issues, resources: TWO_SITES }, { permission: { assert: async () => {} } })
+    await probeMethod(opts).run({}, call())
+    const result = (await eventsMethod(opts).run({ list: ISSUES_LIST }, call())) as { data: { items: { id: string; text: string }[] } }
+    const ids = result.data.items.map((item) => item.id)
+    expect(ids.filter((id) => id === `${SITE}:EX-600`)).toHaveLength(1)
+    expect(ids.filter((id) => id === `${OTHER_SITE}:EX-600`)).toHaveLength(1)
+    expect(ids).toHaveLength(3)
+    // The copy kept is the one the site's newest-first answer lists first: the later update, not the stale duplicate.
+    expect(result.data.items.find((item) => item.id === `${SITE}:EX-600`)).toMatchObject({ text: "EX-600: One work item, again" })
+  })
+
+  test("bounds the answer with multi-byte items: 50 maximal ones exceed 64 KB, so it drops whole items and says so", async () => {
+    // 50 items whose id, text and note are three-byte characters: the id is 128 characters at most, the key alone 120,
+    // the summary 200 and the status name 200, so the answer is about 80 KB before the bound.
+    const huge = {
+      [SITE]: Array.from({ length: 50 }, (_, index) => {
+        const item = issue(400 + index, "2026-11-12T11:00:00.000+0000", "字".repeat(200))
+        return { ...item, key: `${"字".repeat(118)}-${index}`, fields: { ...item.fields, status: { name: "字".repeat(200), statusCategory: { name: "In Progress" } } } }
+      }),
+    } as Fixture["issues"]
+    const opts = sourceOptions({ ...FIXTURE, issues: huge }, { permission: { assert: async () => {} } })
+    await probeMethod(opts).run({}, call())
+    const result = (await eventsMethod(opts).run({ list: ISSUES_LIST }, call())) as { shortened?: boolean; data: { items: { id: string; text: string; note?: string }[] } }
+    expect(result.shortened).toBe(true)
+    expect(result.data.items.length).toBeGreaterThan(0)
+    expect(result.data.items.length).toBeLessThan(50)
+    // Whole items, never cut bytes: each kept item still carries its 200-character text and note.
+    for (const item of result.data.items) {
+      expect([...item.text]).toHaveLength(200)
+      expect([...item.note!]).toHaveLength(200)
+    }
+    expect(new TextEncoder().encode(JSON.stringify(result)).length).toBeLessThanOrEqual(65_536)
+  })
+
+  test("refuses a list it does not have, another source, another account, and a sign-in no probe has named", async () => {
+    const opts = sourceOptions(FIXTURE, { permission: { assert: async () => {} } })
+    await probeMethod(opts).run({}, call())
+    expect(await code(eventsMethod(opts).run({ list: "board" }, call()))).toBe("SOURCE_UNKNOWN")
+    expect(await code(eventsMethod(opts).run({ source: "github", list: ISSUES_LIST }, call()))).toBe("SOURCE_UNKNOWN")
+    expect(await code(eventsMethod(opts).run({ list: ISSUES_LIST, account: "someone-else" }, call()))).toBe("ACCOUNT_MISMATCH")
+    const other = { ...opts, signIn: async () => "cred_other" }
+    expect(await code(eventsMethod(other).run({ list: ISSUES_LIST }, call()))).toBe("UNAVAILABLE")
+  })
+})
+
 describe("conformance", () => {
   test("the source contract's kit passes jira.activity, with every check that applies run", async () => {
     const reports = await conformanceReports()
-    expect(reports.map((report) => [report.source, report.ok, report.incomplete, report.problems])).toEqual([["jira.activity", true, false, []]])
+    expect(reports.map((report) => [report.source, report.ok, report.incomplete, report.problems])).toEqual([
+      ["jira.activity", true, false, []],
+      ["jira.issues", true, false, []],
+    ])
     const notApplicable = reports[0]!.checks.filter((check) => check.notApplicable)
     expect(notApplicable.find((check) => check.name === "gap-and-cursor-expired")?.reason).toContain("never expires")
     expect(notApplicable.find((check) => check.name === "failed-holds-cursor")?.reason).toContain("fails the whole events_list")

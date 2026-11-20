@@ -64,7 +64,7 @@ async function status(host: Host, sessionID: string) {
 /** Enough of the tools RPC's contract for the client to call describe and the methods these tests use. */
 const TOOLS_CONTRACT = {
   id: TOOLS_RPC_ID,
-  methods: Object.fromEntries(["describe", READ_A, READ_B, "createJiraIssue", ...ACCOUNT_READS, ...DESTRUCTIVE_TOOLS].map((name) => [name, { input: { type: "object" }, output: { type: "object" } }])),
+  methods: Object.fromEntries(["describe", "events_list", "probe", READ_A, READ_B, "createJiraIssue", ...ACCOUNT_READS, ...DESTRUCTIVE_TOOLS].map((name) => [name, { input: { type: "object" }, output: { type: "object" } }])),
   events: {},
 }
 type ToolsClient = Record<string, (input: object, options: object) => Promise<unknown>>
@@ -223,6 +223,25 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(described.locationHint).toContain("x-opencode-directory")
     const plain = JSON.parse(await scriptCall(host, "describe", {})) as { methods: { permission?: string }[] }
     expect(plain.methods.every((method) => !Object.hasOwn(method, "permission"))).toBe(true)
+  })
+
+  // The list snapshot rides events_list with a second, declared output: the host validates every method answer, so an
+  // events-only schema refused it `rpc.invalid_output` before there was one.
+  test("a script reads the assigned-issues list through the tools RPC, and the answer is the list's own shape", async () => {
+    await jiraTools(host)
+    const before = host.fake.called.length
+    const sessionID = await session(host)
+    const rpc = toolsRpc(host)
+    await rpc.probe!({ sessionID, input: {} }, { location: host.location })
+    const listed = (await rpc.events_list!({ sessionID, input: { source: "jira", list: "issues" } }, { location: host.location })) as Record<string, any>
+    expect(listed).toMatchObject({
+      source: "jira",
+      account: "fake-account-1",
+      data: { items: [{ id: "cloud-acme:EX-1", text: "EX-1: A work item", note: "In Progress" }], editable: false },
+      trust: "untrusted",
+    })
+    expect(listed.events).toBeUndefined()
+    expect(host.fake.called.slice(before).filter((call) => call.tool === "searchJiraIssuesUsingJql")).toHaveLength(2)
   })
 
   test("the location: describe reports where the call landed, and a call that names another location is answered there", async () => {

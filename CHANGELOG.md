@@ -2,6 +2,31 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.6] - 2026-11-20
+
+### Added
+
+- `jira.issues`, a list snapshot of the work items assigned to the signed-in person, for an app that renders a list and
+  not for an agent: the tools RPC method `events_list` with `{ "source": "jira", "list": "issues" }` answers the
+  contract's `list` output, at most 50 items newest first, once each, read as `assignee = currentUser() ORDER BY updated
+  DESC` on every site the sign-in reaches, through the same two Atlassian tools as `jira.activity`
+  (`getAccessibleAtlassianResources`, then `searchJiraIssuesUsingJql`). An item's text is its key and summary, its note
+  the status name, `done` marks a Done status category, and its id names the site as well as the key, since two sites can
+  both hold `EX-1`. A summary that holds a secret is screened whole and left out before any of it is cut, and the answer
+  stays inside the source's 64 KB (whole items would be dropped, marked `shortened: true`). The tools RPC method
+  declares both answers, the events page and the list, so the host accepts the list; `jira_events_list`, the model's
+  tool, keeps its events-only input and output, so no model sees `list` and nothing changes for a model from this PR.
+- **For jelly:** `sources` gains `jira.issues`, so Jelly asks for consent again; `jira.activity` is unchanged.
+
+### Changed
+
+- The host range is unchanged, `>=2.2.3 <2.4.0`, and this release is tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2.
+- The source contract is `@we-the-rebel-alliance/source-contract` v0.3.0, pinned as
+  `github:we-the-rebel-alliance/source-contract#v0.3.0` (commit `2fd55cd`) and bundled into `dist/index.js`, still with
+  no runtime dependency. `jira.activity` and `jira.issues` declare and send none of v0.3.0's new keys (`facts`,
+  `hints`, `routines`, actor `kind`, `sections`/`parts`), which a consumer still on v0.2.0 refuses; their declarations
+  and pages are unchanged, and a pin alone sends nothing.
+
 ## [0.0.5] - 2026-11-18
 
 ### Changed
