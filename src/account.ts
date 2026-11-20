@@ -163,9 +163,11 @@ export async function watchAccount(
   const watching = (async () => {
     while (!stopped.signal.aborted) {
       try {
-        const events = ctx.event.subscribe({ types: ["mcp.status.changed", "credential.switched"], signal: stopped.signal })
+        const events = ctx.event.subscribe({ types: ["mcp.status.changed", "credential.updated", "credential.switched"], signal: stopped.signal })
         for await (const event of events) {
-          if (event.type === "credential.switched") {
+          // A new or switched credential may be another person under the same credential id: nothing read for the
+          // old one, the account rows or who the sign-in is, holds any more.
+          if (event.type === "credential.updated" || event.type === "credential.switched") {
             account = {}
             forgotten()
           }

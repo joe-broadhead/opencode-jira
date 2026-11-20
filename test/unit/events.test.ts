@@ -560,14 +560,48 @@ describe("after a restart, with no probe yet", () => {
     await expect(eventsMethod(refused).run(listing, call())).rejects.toBe(refusal)
   })
 
-  test("a new credential has its own sign-in to read, and what the plugin forgets on a credential change is read again", async () => {
+  /** An identity read that waits: the answer is given when `release` is called. */
+  function held(base: EventsOptions) {
+    let release!: () => void
+    let started!: () => void
+    const reading = new Promise<void>((resolve) => (started = resolve))
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const opts = replacing(base, "atlassianUserInfo", async (original, input) => {
+      started()
+      await gate
+      return original(input)
+    })
+    return { opts, release, reading }
+  }
+
+  test("an identity read that was in flight when the sign-in was forgotten does not refill it, for a listing or a probe", async () => {
+    for (const run of [(opts: EventsOptions) => eventsMethod(opts).run(listing, call()), (opts: EventsOptions) => probeMethod(opts).run({}, call())]) {
+      const { opts, release, reading } = held(sourceOptions(FIXTURE, permission))
+      const pending = run(opts)
+      await reading
+      // A credential update or switch arrives while the read is out: what it answers belongs to the old sign-in.
+      opts.signIns.clear()
+      release()
+      await pending
+      expect(opts.signIns.size).toBe(0)
+    }
+  })
+
+  test("a read that starts after the sign-in was forgotten keeps its answer", async () => {
+    const opts = sourceOptions(FIXTURE, permission)
+    opts.signIns.clear()
+    await eventsMethod(opts).run(listing, call())
+    expect(opts.signIns.get("cred_conformance")).toEqual(SIGNED)
+  })
+
+  // The plugin forgets on a credential update or switch (src/account.ts; test/unit/account.test.ts drives those events).
+  test("a new credential has its own sign-in to read, and what the plugin forgot is read again", async () => {
     const calls: string[] = []
     const opts = sourceOptions(FIXTURE, permission, calls)
     await eventsMethod(opts).run(listing, call())
     await eventsMethod({ ...opts, signIn: async () => "cred_other" }).run(listing, call())
     expect([...opts.signIns.keys()].sort()).toEqual(["cred_conformance", "cred_other"])
     expect(calls.filter((tool) => tool === "atlassianUserInfo")).toHaveLength(2)
-    // What the plugin does on a credential update or switch (src/plugin.ts).
     opts.signIns.clear()
     calls.length = 0
     await eventsMethod(opts).run(listing, call())

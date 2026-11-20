@@ -323,8 +323,19 @@ export interface SignedIn {
  * compares the account it is asked for with this, so it never labels a page with an account it has not seen signed in.
  * One per plugin instance, in memory: after a restart, or a new sign-in, the next listing reads it again.
  */
-export type SignIns = Map<string, SignedIn>
-export const signIns = (): SignIns => new Map()
+export class SignIns extends Map<string, SignedIn> {
+  /** How many times it was cleared. A read that started in an earlier generation must not store its answer. */
+  generation = 0
+  override clear() {
+    this.generation++
+    super.clear()
+  }
+  /** Keeps `who` for the sign-in, unless the sign-ins were forgotten after the read began in `since`. */
+  keep(key: string, who: SignedIn, since: number) {
+    if (since === this.generation) this.set(key, who)
+  }
+}
+export const signIns = (): SignIns => new SignIns()
 
 /**
  * The account an Atlassian account id names. An id such as `712020:6f0e…` holds a colon, which the contract's account
@@ -872,8 +883,11 @@ async function signedInFor(options: Pick<EventsOptions, "signIn" | "signIns">, r
   const key = (await options.signIn().catch(() => undefined)) ?? ""
   const known = options.signIns.get(key)
   if (known !== undefined) return known
+  const since = options.signIns.generation
   const found = signedInOf(await read(IDENTITY_TOOL, {}), EVENTS_LIST)
-  options.signIns.set(key, found)
+  // Forgotten while the read was out (a credential update or switch): its answer is for the old sign-in, so it is used
+  // for this call alone and not kept.
+  options.signIns.keep(key, found, since)
   return found
 }
 
@@ -944,7 +958,8 @@ export function probeMethod(options: EventsOptions): OwnedMethod {
       const context = call as unknown as Context
       await assertAction(options, PROBE_ACTION, context)
       const signIn = (await options.signIn().catch(() => undefined)) ?? ""
-      return jiraProbe(reader(options, context, PROBE), input, (signedIn) => void options.signIns.set(signIn, signedIn))
+      const since = options.signIns.generation
+      return jiraProbe(reader(options, context, PROBE), input, (signedIn) => options.signIns.keep(signIn, signedIn, since))
     },
     available: availability(options),
   }

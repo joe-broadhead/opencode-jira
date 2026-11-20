@@ -18,11 +18,13 @@ All notable changes to this project are documented here. The format follows [Kee
   their own errors. A request that is invalid, or a cursor for another account, is still refused before any read.
   The account is the Atlassian account id and does not depend on a site, so a listing still covers every Jira site the
   sign-in reaches, as before.
-- **For Memory and every consumer:** `jira.activity` and `jira.issues` now declare `permission.readsIdentity: true`
-  in `package.json`'s `sources`, which the source contract defines for a source whose content reads assert an identity
-  operation (its conformance kit checks the declaration). No operation or rule is added: `atlassianUserInfo` was
-  already in `permission.operations` and `permission.identity`. Because the declaration changed, a consumer that asks
-  to confirm a source asks again. `probe` is unchanged.
+- **Who is signed in is also forgotten on `credential.updated`,** not only on `credential.switched` or a server that
+  needs a new sign-in, as are the account rows status shows: a new credential may be another person under the same
+  credential id, who must not be listed under the old account. An identity read that was still out when this happens is
+  used for its own call and not kept, so it cannot bring the old sign-in back.
+- **For Memory and every consumer:** nothing changes in what the plugin declares. `package.json`'s `sources` is
+  unchanged, so a consumer does not ask to confirm Jira again, and no operation or rule is added: `atlassianUserInfo`
+  was already in `permission.operations` and `permission.identity`. `probe` is unchanged.
 
 ### Changed
 
