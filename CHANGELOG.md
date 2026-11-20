@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.6] - 2026-11-20
 
 ### Added
 
@@ -19,6 +19,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- The host range is unchanged, `>=2.2.3 <2.4.0`, and this release is tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2.
 - The source contract is `@we-the-rebel-alliance/source-contract` v0.3.0, pinned as
   `github:we-the-rebel-alliance/source-contract#v0.3.0` (commit `2fd55cd`) and bundled into `dist/index.js`, still with
   no runtime dependency. `jira.activity` and `jira.issues` declare and send none of v0.3.0's new keys (`facts`,
