@@ -94,8 +94,7 @@
           ],
           "identity": [
             "atlassianUserInfo"
-          ],
-          "readsIdentity": true
+          ]
         },
         "private": true,
         "cost": {
@@ -127,8 +126,7 @@
           ],
           "identity": [
             "atlassianUserInfo"
-          ],
-          "readsIdentity": true
+          ]
         },
         "private": true,
         "cost": {
