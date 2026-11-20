@@ -79,6 +79,11 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
   destructive class or a scope-withheld read is a method but runs only on a resolved `allow`; under `access: "all"` the
   default allow is that allow. The withheld reads are unavailable because Atlassian never lists them. Keep the RPC id
   `jira.issues.tools` and its method names stable: scripts call them by name.
+- **No key a consumer on source-contract 0.1 refuses.** Declare or send none of `removals[]`, `owner.verified`,
+  `identityRules`, `accounts.server`, `readsIdentity`, a price's `conditions` or `min`, or an empty `identity` until the
+  consumers are on 0.2. A listing that finds no recorded sign-in reads the identity itself (`signedInFor` in
+  `src/events.ts`), so the conformance run, which probes first as a consumer does at bind, cannot show that path: the
+  unit tests do ("after a restart, with no probe yet").
 - **Tests.** Unit tests use narrow `Pick<Plugin.Context, ...>` fakes. Host tests use the public `@opencode/sdk` with
   `OpenCode.create({ app: { version } })`, a loopback fake server and the temp root from `test/host/isolate.ts`.
   Every temp root of the host and pack tests is a git repository under the system's `/tmp`, never under `TMPDIR` or

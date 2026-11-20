@@ -121,7 +121,10 @@ export async function conformanceReports(fixture: Fixture = FIXTURE): Promise<Co
   installed()
   const sources = declaredSources()
   const account = accountOf(String(fixture.me["accountId"]))
-  // What probe records, for the one sign-in: a listing checks its account against it, as the plugin does.
+  // What probe records, for the one sign-in: a listing checks its account against it, as the plugin does. A fresh
+  // process, where no probe has run and a listing reads who is signed in itself, is covered by the unit tests: the kit
+  // refuses a content read that asserts an identity operation, unless the source declares `readsIdentity`, a key a
+  // consumer on source-contract 0.1 refuses (AGENTS.md).
   const known = signIns()
   const methods = (session: Pick<SessionContext, "permission">) => {
     const options = sourceOptions(fixture, session, [], known)

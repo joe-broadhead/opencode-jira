@@ -134,8 +134,12 @@ the tools RPC with `list` `issues`; the model's tool takes no `list`).
   removed it. Listing every update would take one changelog read per work item, and a changelog holds the field values
   people wrote, so the source does not read it.
 - `probe` (`jira_probe`, a tools RPC method) names who is signed in, from one `atlassianUserInfo` read: the account is
-  your Atlassian account id (each `:` written `_`), and the owner `atlassian:` and the id. A listing names that account,
-  so a collector probes once after each sign-in; until then `events_list` answers `UNAVAILABLE` and says to probe.
+  your Atlassian account id (each `:` written `_`), and the owner `atlassian:` and the id. A listing names that same
+  account. **A listing needs no probe before it, so it keeps working after OpenCode restarts:** the plugin keeps who is
+  signed in only in memory, so the first listing after a start of OpenCode, or after a new sign-in, makes that one
+  `atlassianUserInfo` read itself, once, and keeps the answer for the sign-in. A collector that probes only when it
+  binds therefore needs no probe again. Another account than the signed-in one is still `ACCOUNT_MISMATCH`, and if
+  Atlassian cannot answer the read the listing is `UNAVAILABLE` (run `/jira-status`, then list again).
 
 An event carries metadata only: the key and summary as its title, the update time, the assignee and the reporter as
 Jira names them (`atlassian:` and the account id, with the display name), the status, type and priority as its text,
@@ -156,7 +160,8 @@ change. Such a burst is passed in one call, however long, up to 100 search pages
 burst larger than that is passed with a `gap` (`window-truncated`) that names where events may be missing, never by
 failing every call.
 
-**Calls per listing:** one `getAccessibleAtlassianResources`, then one `searchJiraIssuesUsingJql` per Jira site for a
+**Calls per listing:** the first listing after a start of OpenCode or a new sign-in also makes one `atlassianUserInfo`
+read. Every listing makes one `getAccessibleAtlassianResources`, then one `searchJiraIssuesUsingJql` per Jira site for a
 page of up to 100 work items, more for a larger `limit` or a burst, and at most 100 per site. They share your sign-in's
 Atlassian rate limit with the model's own calls; nothing is billed. Both tools run through OpenCode's executors, under
 the same rules as any call, and every `access` value allows `events_list` and `probe`.

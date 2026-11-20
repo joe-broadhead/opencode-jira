@@ -227,12 +227,12 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
 
   // The list snapshot rides events_list with a second, declared output: the host validates every method answer, so an
   // events-only schema refused it `rpc.invalid_output` before there was one.
-  test("a script reads the assigned-issues list through the tools RPC, and the answer is the list's own shape", async () => {
+  // No probe runs first, as after a restart of OpenCode: the listing reads who is signed in through the host's own executor.
+  test("a script reads the assigned-issues list through the tools RPC with no probe first, and the answer is the list's own shape", async () => {
     await jiraTools(host)
     const before = host.fake.called.length
     const sessionID = await session(host)
     const rpc = toolsRpc(host)
-    await rpc.probe!({ sessionID, input: {} }, { location: host.location })
     const listed = (await rpc.events_list!({ sessionID, input: { source: "jira", list: "issues" } }, { location: host.location })) as Record<string, any>
     expect(listed).toMatchObject({
       source: "jira",

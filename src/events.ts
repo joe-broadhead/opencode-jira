@@ -37,10 +37,12 @@ import { SERVER_NAME } from "./constants.js"
  * the key and summary, the update time, the assignee and reporter as Jira names them, the status, type and priority,
  * and the link. Never a description, comment or field value someone wrote.
  *
- * It never asks Atlassian who is signed in: `probe` reads `atlassianUserInfo`, the source's one identity operation, and
- * records who each sign-in (OpenCode's credential for the `jira` server) is; a listing names that account and owner,
- * and refuses another. Each call makes these reads, through the host's own executor for `jira_<tool>`, with the caller's
- * context, so each read's permission rules apply and the plugin holds no credential:
+ * A listing names who is signed in: the account and owner `probe` names, from `atlassianUserInfo`, the source's one
+ * identity operation. It uses what an earlier `probe` or listing recorded for the sign-in (OpenCode's credential for the
+ * `jira` server), and otherwise, the first time it needs it in a process, makes that one read itself, so it needs no
+ * probe before it and survives a restart of OpenCode. It refuses another account. Each call makes these reads, through
+ * the host's own executor for `jira_<tool>`, with the caller's context, so each read's permission rules apply and the
+ * plugin holds no credential:
  *
  * - `getAccessibleAtlassianResources`, once: the sites and their `cloudId`s; a site whose products leave out Jira is
  *   skipped;
@@ -317,12 +319,23 @@ export interface SignedIn {
 }
 
 /**
- * What `probe` has read, per sign-in (OpenCode's credential for the `jira` server): a listing compares the account it
- * is asked for with this, so it never labels a page with an account it has not seen signed in. One per plugin instance,
- * in memory: after a restart, or a new sign-in, a listing waits for the next probe.
+ * Who each sign-in is (OpenCode's credential for the `jira` server), as `probe` or a listing read it: a listing
+ * compares the account it is asked for with this, so it never labels a page with an account it has not seen signed in.
+ * One per plugin instance, in memory: after a restart, or a new sign-in, the next listing reads it again.
  */
-export type SignIns = Map<string, SignedIn>
-export const signIns = (): SignIns => new Map()
+export class SignIns extends Map<string, SignedIn> {
+  /** How many times it was cleared. A read that started in an earlier generation must not store its answer. */
+  generation = 0
+  override clear() {
+    this.generation++
+    super.clear()
+  }
+  /** Keeps `who` for the sign-in, unless the sign-ins were forgotten after the read began in `since`. */
+  keep(key: string, who: SignedIn, since: number) {
+    if (since === this.generation) this.set(key, who)
+  }
+}
+export const signIns = (): SignIns => new SignIns()
 
 /**
  * The account an Atlassian account id names. An id such as `712020:6f0e…` holds a colon, which the contract's account
@@ -338,11 +351,11 @@ const ACCOUNT_ID = /^[A-Za-z0-9:_-]{1,128}$/
  * `/me` writes it), and, when the answer names one, their name for the label. Nothing else of the answer is read: no
  * email address.
  */
-export function signedInOf(answer: unknown): SignedIn {
+export function signedInOf(answer: unknown, method: string = PROBE): SignedIn {
   const data = unwrap(answer)
   const user = isRecord(data["user"]) ? (data["user"] as Data) : data
   const id = text(user["accountId"]) ?? text(user["account_id"])
-  if (id === undefined || !ACCOUNT_ID.test(id)) throw unreadable(IDENTITY_TOOL, PROBE)
+  if (id === undefined || !ACCOUNT_ID.test(id)) throw unreadable(IDENTITY_TOOL, method)
   const name = text(user["displayName"]) ?? text(user["name"]) ?? text(user["nickname"])
   const label = cut((name ?? id).replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim(), EVENT_LIMITS.ownerLabel) || id
   return { account: accountOf(id), owner: { id: cut(`atlassian:${id}`, EVENT_LIMITS.ownerId), label } }
@@ -589,21 +602,21 @@ function encodeState(account: string, state: CursorState): string {
  * Lists what changed in Jira for the signed-in person after the request's cursor, or since its `since` (24 hours ago by
  * default): one event per work item they are part of each time a read finds it updated (several updates between two
  * reads are one, the latest), oldest first, at most `limit`, on every Jira site the sign-in reaches. The cursor holds each site's last listed position, so a later call never skips or repeats a
- * work item, and an older cursor lists the same events again.
+ * work item, and an older cursor lists the same events again. `signedIn` says who the sign-in is, from what an earlier
+ * probe or listing kept or else from Atlassian's identity read; it is asked only after the request is valid and its
+ * cursor is not another account's.
  */
-export async function jiraEvents(read: Read, signedIn: SignedIn | undefined, input: unknown, now: number): Promise<EventsListResult> {
+export async function jiraEvents(read: Read, signedIn: () => Promise<SignedIn>, input: unknown, now: number): Promise<EventsListResult> {
   const request = eventsRequest(input)
   const asked = request.account
-  // Everything about the account is settled before anything is read: a cursor and an account that disagree, a sign-in
-  // no probe has named yet, and another account than the signed-in one.
+  // Everything about the account is settled before the listing's own reads: a cursor and an account that disagree
+  // (before any read), and another account than the signed-in one.
   if (asked !== undefined && request.cursor !== undefined) {
     const named = cursorAccount(request.cursor)
     if (named !== undefined && named !== asked) throw mismatch(asked, "cursor")
   }
-  if (signedIn === undefined) {
-    throw fail("UNAVAILABLE", "The plugin does not know yet who is signed in to Jira: no probe has named this sign-in's account since it was made or OpenCode started", "Call probe for the jira source, then call events_list again.")
-  }
-  const account = signedIn.account
+  const who = await signedIn()
+  const account = who.account
   if (asked !== undefined && asked !== account) throw mismatch(asked, "signed-in")
   const state: CursorState = request.cursor === undefined ? { start: startTime(request, now), sites: new Map() } : stateOf(request.cursor, account)
 
@@ -651,7 +664,7 @@ export async function jiraEvents(read: Read, signedIn: SignedIn | undefined, inp
   const more = consumed < merged.length || reads.some((entry) => !entry.result.exhausted)
   const cursor = encodeState(account, { start: state.start, sites: positions })
   return eventsListResult(
-    { source: JIRA_SOURCE, account, owner: signedIn.owner },
+    { source: JIRA_SOURCE, account, owner: who.owner },
     listed.map((change) => change.event),
     cursor,
     more,
@@ -703,7 +716,7 @@ export interface EventsOptions {
   readonly owned: () => boolean
   /** OpenCode's credential for the `jira` server, which keys `signIns`; undefined when there is none. */
   readonly signIn: () => Promise<string | undefined>
-  /** What probe has read, per sign-in. */
+  /** Who each sign-in is, as probe or a listing read it. */
   readonly signIns: SignIns
   /** The clock; tests fix it. */
   readonly now?: () => number
@@ -809,7 +822,7 @@ export const isIssuesList = (input: unknown): boolean => isRecord(input) && "lis
  * cut. The answer stays inside LIST_MAX_BYTES by dropping whole items from its end, which it says with
  * `shortened: true`; it never cuts an item's bytes.
  */
-export async function jiraIssueList(read: Read, signedIn: SignedIn | undefined, input: unknown, now: number) {
+export async function jiraIssueList(read: Read, signedIn: () => Promise<SignedIn>, input: unknown, now: number) {
   const data = isRecord(input) ? input : {}
   if (data["list"] !== ISSUES_LIST) {
     throw fail("SOURCE_UNKNOWN", `A list read names "${ISSUES_LIST}", not "${text(data["list"]) ?? ""}".`, `Pass "list" as "${ISSUES_LIST}".`)
@@ -817,11 +830,9 @@ export async function jiraIssueList(read: Read, signedIn: SignedIn | undefined, 
   if (data["source"] !== undefined && data["source"] !== JIRA_SOURCE) {
     throw fail("SOURCE_UNKNOWN", `This plugin has no list for "${text(data["source"]) ?? ""}".`, `Pass source "${JIRA_SOURCE}" with list "${ISSUES_LIST}".`)
   }
-  if (signedIn === undefined) {
-    throw fail("UNAVAILABLE", "The plugin does not know yet who is signed in to Jira: no probe has named this sign-in's account since it was made or OpenCode started", "Call probe for the jira source, then call events_list again.")
-  }
+  const who = await signedIn()
   const asked = text(data["account"])
-  if (asked !== undefined && asked !== signedIn.account) throw mismatch(asked, "signed-in")
+  if (asked !== undefined && asked !== who.account) throw mismatch(asked, "signed-in")
   const sites = sitesOf(await read(SITES_TOOL, {}))
   if (sites.length > MAX_SITES) {
     throw fail("UNAVAILABLE", `The Atlassian sign-in reaches ${sites.length} Jira sites, more than the ${MAX_SITES} a list reads`, "Sign in to Jira with an account that reaches fewer sites, or read the sites you need with searchJiraIssuesUsingJql.")
@@ -853,13 +864,31 @@ export async function jiraIssueList(read: Read, signedIn: SignedIn | undefined, 
     }
   }
   const items = rows.sort((a, b) => b.at - a.at).slice(0, LIST_CAP).map((row) => row.item)
-  const answer = { source: JIRA_SOURCE, account: signedIn.account, data: { items, editable: false as const }, asOf: new Date(now).toISOString(), trust: "untrusted" as const }
+  const answer = { source: JIRA_SOURCE, account: who.account, data: { items, editable: false as const }, asOf: new Date(now).toISOString(), trust: "untrusted" as const }
   let shortened = false
   while (items.length > 0 && jsonBytes({ ...answer, shortened }) > LIST_MAX_BYTES) {
     items.pop()
     shortened = true
   }
   return shortened ? { ...answer, shortened } : answer
+}
+
+/**
+ * Who the current sign-in is: what an earlier probe or listing kept for it, else read now with the one identity read
+ * `probe` makes, and kept for the process, so a listing needs no probe before it, also after a restart. A read that
+ * fails keeps nothing, so the next call reads again; its own error (UNAVAILABLE, RATE_LIMITED, a refused permission
+ * check, a server that cannot be called) reaches the caller.
+ */
+async function signedInFor(options: Pick<EventsOptions, "signIn" | "signIns">, read: Read): Promise<SignedIn> {
+  const key = (await options.signIn().catch(() => undefined)) ?? ""
+  const known = options.signIns.get(key)
+  if (known !== undefined) return known
+  const since = options.signIns.generation
+  const found = signedInOf(await read(IDENTITY_TOOL, {}), EVENTS_LIST)
+  // Forgotten while the read was out (a credential update or switch): its answer is for the old sign-in, so it is used
+  // for this call alone and not kept.
+  options.signIns.keep(key, found, since)
+  return found
 }
 
 /** `jira_events_list`, a Code Mode tool in the `jira` namespace. It asserts its own action, then reads. */
@@ -873,9 +902,9 @@ export function eventsTool(options: EventsOptions) {
     execute: async (input: unknown, context: Context) => {
       // Rethrown untouched: the host turns a refusal into the end of the step, and the tools RPC into PERMISSION_DENIED.
       await assertAction(options, EVENTS_ACTION, context)
-      const signedIn = options.signIns.get((await options.signIn().catch(() => undefined)) ?? "")
+      const read = reader(options, context)
       // The tool's schema has no `list`: a model's read is the events feed. The list is the tools RPC method's.
-      const output = await jiraEvents(reader(options, context), signedIn, input, options.now?.() ?? Date.now())
+      const output = await jiraEvents(read, () => signedInFor(options, read), input, options.now?.() ?? Date.now())
       return { output, content: summary(output) }
     },
   }
@@ -905,10 +934,11 @@ export function eventsMethod(options: EventsOptions): OwnedMethod {
     run: async (input: unknown, call: ToolCall) => {
       // Rethrown untouched: the host turns a refusal into the end of the step, and the tools RPC into PERMISSION_DENIED.
       await assertAction(options, EVENTS_ACTION, call as unknown as Context)
-      const signedIn = options.signIns.get((await options.signIn().catch(() => undefined)) ?? "")
+      const read = reader(options, call as unknown as Context)
+      const signedIn = () => signedInFor(options, read)
       const now = options.now?.() ?? Date.now()
-      if (isIssuesList(input)) return jiraIssueList(reader(options, call as unknown as Context), signedIn, input, now)
-      return jiraEvents(reader(options, call as unknown as Context), signedIn, input, now)
+      if (isIssuesList(input)) return jiraIssueList(read, signedIn, input, now)
+      return jiraEvents(read, signedIn, input, now)
     },
     available: availability(options),
   }
@@ -928,7 +958,8 @@ export function probeMethod(options: EventsOptions): OwnedMethod {
       const context = call as unknown as Context
       await assertAction(options, PROBE_ACTION, context)
       const signIn = (await options.signIn().catch(() => undefined)) ?? ""
-      return jiraProbe(reader(options, context, PROBE), input, (signedIn) => void options.signIns.set(signIn, signedIn))
+      const since = options.signIns.generation
+      return jiraProbe(reader(options, context, PROBE), input, (signedIn) => options.signIns.keep(signIn, signedIn, since))
     },
     available: availability(options),
   }

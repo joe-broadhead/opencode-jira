@@ -140,6 +140,17 @@ describe("watchAccount", () => {
     expect(state.forgotten).toBe(2)
   })
 
+  // A new credential may be another person under the same credential id: what was read for the old one no longer holds.
+  test("forgets the account, and who the sign-in is, when the credential is updated", async () => {
+    const { account, after, state, stream } = await watch()
+    await after({ tool: "jira_atlassianUserInfo", status: "completed", result: { output: USER } })
+    expect(account.current()).toBeDefined()
+    stream.emit("credential.updated")
+    await tick()
+    expect(account.current()).toBeUndefined()
+    expect(state.forgotten).toBe(1)
+  })
+
   test("while any instance signs in with its own API-token entry, a script's read updates no status", async () => {
     const shared = await watch()
     const stream = events()
